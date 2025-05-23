@@ -1,50 +1,82 @@
-# Welcome to your Expo app 👋
+# CycleConnect
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+CycleConnect is a React Native mobile application that allows cyclists in Israel to find and join cycling rides, create their own rides, and connect with fellow cycling enthusiasts. The app features a clean, modern UI with Hebrew language support.
 
-## Get started
+## Features
 
-1. Install dependencies
+- Browse and search for upcoming rides
+- Create new cycling rides with detailed information
+- Filter rides by type, difficulty, technical level, and more
+- Location search with Google Places API integration
+- Mobile-first UI design with Hebrew localization
+- User profiles and ride management
 
-   ```bash
-   npm install
-   ```
+## Project Structure
 
-2. Start the app
+- `/app` - Main application screens and navigation
+- `/components` - Reusable UI components
+- `/constants` - App-wide constants like colors and themes
+- `/assets` - Images and other static assets
+- `/proxy-server.js` - Google Places API proxy for location search
 
-   ```bash
-   npx expo start
-   ```
+## Getting Started
 
-In the output, you'll find options to open the app in a
+### Prerequisites
 
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
+- Node.js (v14 or newer)
+- npm or yarn
+- Expo CLI
+- Google Places API key (for location search)
 
-You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
+### Environment Setup
 
-## Get a fresh project
-
-When you're ready, run:
-
-```bash
-npm run reset-project
+1. Clone the repository
+2. Create a `.env` file in the root directory with the following variables:
+```
+GOOGLE_API_KEY=your_google_places_api_key
+PORT=3000
 ```
 
-This command will move the starter code to the **app-example** directory and create a blank **app** directory where you can start developing.
+### Installation
 
-## Learn more
+```bash
+# Install dependencies
+npm install
 
-To learn more about developing your project with Expo, look at the following resources:
+# Start the proxy server (in a separate terminal)
+node proxy-server.js
 
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
+# In another terminal, expose the proxy server with ngrok
+ngrok http 3000
 
-## Join the community
+# Update your .env with the ngrok URL
+NGROK_URL=your_ngrok_url
 
-Join our community of developers creating universal apps.
+# Start the Expo development server
+npm start
+```
 
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+## Running the Location Search Proxy
+
+The app uses a proxy server to securely handle Google Places API requests. To use the location search feature:
+
+1. Make sure your `.env` file has a valid `GOOGLE_API_KEY`
+2. Start the proxy server: `node proxy-server.js`
+3. Use ngrok to expose your local server: `ngrok http 3000`
+4. Update the `NGROK_URL` in your `.env` file with the ngrok URL
+
+## Technology Stack
+
+- React Native / Expo
+- Expo Router for navigation
+- TypeScript
+- Express.js (for proxy server)
+- Google Places API
+
+## License
+
+MIT
+
+## Authors
+
+- David Zaltsman

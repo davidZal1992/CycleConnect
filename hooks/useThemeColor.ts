@@ -16,6 +16,6 @@ export function useThemeColor(
   if (colorFromProps) {
     return colorFromProps;
   } else {
-    return Colors[theme][colorName];
+    return Colors[theme] ? Colors[theme][colorName] : Colors.light[colorName];
   }
 }
