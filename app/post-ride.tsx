@@ -303,6 +303,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+    marginBottom: 12,
   },
   toggleButton: {
     padding: 8,
@@ -350,6 +351,11 @@ const styles = StyleSheet.create({
   hiddenLocationSearch: {
     marginTop: 10,
     zIndex: 999,
+  },
+  characterCount: {
+    fontSize: 14,
+    color: Colors.light.text + '80',
+    marginLeft: 10,
   },
 });
 
@@ -587,7 +593,10 @@ export default function PostRideScreen() {
           >
             {/* Ride Title */}
             <View style={styles.formSection}>
-              <ThemedText type="defaultSemiBold" style={styles.sectionTitle}>כותרת הרכיבה</ThemedText>
+              <View style={styles.sectionTitleContainer}>
+                <ThemedText style={styles.characterCount}>{title.length}/15</ThemedText>
+                <ThemedText type="defaultSemiBold" style={styles.sectionTitle}>כותרת הרכיבה</ThemedText>
+              </View>
               <View style={styles.inputWrapper}>
                 <Ionicons name="bicycle" size={20} color={Colors.light.text + '80'} style={styles.inputIcon} />
                 <TextInput
@@ -595,7 +604,13 @@ export default function PostRideScreen() {
                   placeholder="הזן כותרת לרכיבה..."
                   placeholderTextColor={Colors.light.text + '80'}
                   value={title}
-                  onChangeText={setTitle}
+                  onChangeText={(text) => {
+                    // Limit title to 15 characters
+                    if (text.length <= 15) {
+                      setTitle(text);
+                    }
+                  }}
+                  maxLength={15}
                   textAlign="right"
                 />
               </View>
@@ -603,7 +618,10 @@ export default function PostRideScreen() {
             
             {/* Ride Description */}
             <View style={styles.formSection}>
-              <ThemedText type="defaultSemiBold" style={styles.sectionTitle}>תיאור הרכיבה</ThemedText>
+              <View style={styles.sectionTitleContainer}>
+                <ThemedText style={styles.characterCount}>{description.length}/50</ThemedText>
+                <ThemedText type="defaultSemiBold" style={styles.sectionTitle}>תיאור הרכיבה</ThemedText>
+              </View>
               <View style={styles.inputWrapper}>
                 <Ionicons name="document-text-outline" size={20} color={Colors.light.text + '80'} style={[styles.inputIcon, styles.textAreaIcon]} />
                 <TextInput
@@ -611,7 +629,13 @@ export default function PostRideScreen() {
                   placeholder="תאר/י את הרכיבה, נקודות עניין, דברים שחשוב לדעת..."
                   placeholderTextColor={Colors.light.text + '80'}
                   value={description}
-                  onChangeText={setDescription}
+                  onChangeText={(text) => {
+                    // Limit description to 50 characters
+                    if (text.length <= 50) {
+                      setDescription(text);
+                    }
+                  }}
+                  maxLength={50}
                   multiline
                   numberOfLines={4}
                   textAlign="right"
@@ -668,6 +692,9 @@ export default function PostRideScreen() {
                 locale="he"
                 confirmTextIOS="אישור"
                 cancelTextIOS="ביטול"
+                modalPropsIOS={{
+                  presentationStyle: 'overFullScreen'
+                }}
               />
               
               <DateTimePickerModal
@@ -679,6 +706,9 @@ export default function PostRideScreen() {
                 confirmTextIOS="אישור"
                 cancelTextIOS="ביטול"
                 minuteInterval={1}
+                modalPropsIOS={{
+                  presentationStyle: 'overFullScreen'
+                }}
               />
             </View>
             

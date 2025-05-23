@@ -49,13 +49,17 @@ export default function RideDetailScreen() {
     );
   }
   
-  const getDifficultyColor = (level: string): string => {
+  const getLevelColor = (level: string): string => {
     switch(level) {
       case 'easy': return '#4caf50'; // Green
       case 'medium': return '#ff9800'; // Orange
       case 'hard': return '#f44336'; // Red
       default: return '#4caf50'; // Default green
     }
+  };
+  
+  const getDifficultyColor = (level: string): string => {
+    return getLevelColor(level);
   };
   
   const getTechnicalLevelText = (level: string): string => {
@@ -86,6 +90,31 @@ export default function RideDetailScreen() {
                 <ThemedText style={styles.organizerLabel}>מארגן/ת הרכיבה</ThemedText>
                 <ThemedText style={styles.organizerName}>{ride.organizer.name}</ThemedText>
               </View>
+            </View>
+            
+            {/* Contact options */}
+            <View style={styles.contactOptions}>
+              <TouchableOpacity 
+                style={styles.contactButton}
+                onPress={() => {
+                  // Logic to open WhatsApp would go here
+                  console.log('Open WhatsApp with:', ride.organizer.phone || 'No phone number available');
+                }}
+              >
+                <Ionicons name="logo-whatsapp" size={22} color="#25D366" />
+                <ThemedText style={styles.contactButtonText}>WhatsApp</ThemedText>
+              </TouchableOpacity>
+              
+              <TouchableOpacity 
+                style={styles.contactButton}
+                onPress={() => {
+                  // Logic to make a call would go here
+                  console.log('Call organizer:', ride.organizer.phone || 'No phone number available');
+                }}
+              >
+                <Ionicons name="call" size={20} color="#007AFF" />
+                <ThemedText style={styles.contactButtonText}>התקשר</ThemedText>
+              </TouchableOpacity>
             </View>
           </View>
           
@@ -155,17 +184,21 @@ export default function RideDetailScreen() {
             
             <View style={styles.specItem}>
               <ThemedText style={styles.specLabel}>רמה טכנית</ThemedText>
-              <ThemedText style={styles.specValue}>
-                {getTechnicalLevelText(ride.technicalLevel)}
-              </ThemedText>
+              <View style={[styles.difficultyBadge, { backgroundColor: ride.technicalLevel === 'none' ? '#9e9e9e' : getLevelColor(ride.technicalLevel) }]}>
+                <ThemedText style={styles.difficultyText}>
+                  {getTechnicalLevelText(ride.technicalLevel)}
+                </ThemedText>
+              </View>
             </View>
             
             <View style={styles.specItem}>
               <ThemedText style={styles.specLabel}>מהירות</ThemedText>
-              <ThemedText style={styles.specValue}>
-                {ride.speedLevel === 'slow' ? 'איטי' : 
-                 ride.speedLevel === 'medium' ? 'זורם' : 'מהיר'}
-              </ThemedText>
+              <View style={[styles.difficultyBadge, { backgroundColor: getLevelColor(ride.speedLevel === 'slow' ? 'easy' : ride.speedLevel === 'medium' ? 'medium' : 'hard') }]}>
+                <ThemedText style={styles.difficultyText}>
+                  {ride.speedLevel === 'slow' ? 'איטי' : 
+                   ride.speedLevel === 'medium' ? 'זורם' : 'מהיר'}
+                </ThemedText>
+              </View>
             </View>
           </View>
           
@@ -372,5 +405,25 @@ const styles = StyleSheet.create({
     color: 'white',
     fontWeight: 'bold',
     fontSize: 16,
+  },
+  contactOptions: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginTop: 12,
+  },
+  contactButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 12,
+    borderWidth: 1,
+    borderColor: Colors.light.primary,
+    borderRadius: 8,
+  },
+  contactButtonText: {
+    marginLeft: 8,
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: Colors.light.primary,
   },
 }); 

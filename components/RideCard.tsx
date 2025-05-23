@@ -1,6 +1,6 @@
 import { ThemedText } from '@/components/ThemedText';
 import { Colors } from '@/constants/Colors';
-import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
+import { Ionicons } from '@expo/vector-icons';
 import { Link } from 'expo-router';
 import React from 'react';
 import { Image, StyleSheet, TouchableOpacity, View } from 'react-native';
@@ -64,6 +64,16 @@ export const RideCard = ({
     }
   };
   
+  // Map speed level to human-readable Hebrew text
+  const getSpeedLevelText = (level: SpeedLevel): string => {
+    switch(level) {
+      case 'slow': return 'קצב איטי';
+      case 'medium': return 'קצב בינוני';
+      case 'fast': return 'קצב מהיר';
+      default: return 'קצב בינוני';
+    }
+  };
+  
   // Get icon name for ride type that works with MaterialCommunityIcons
   const getRideTypeIcon = (type: RideType) => {
     switch(type) {
@@ -85,11 +95,36 @@ export const RideCard = ({
   };
   
   // Map difficulty level to color
-  const getDifficultyColor = (level: DifficultyLevel): string => {
+  const getLevelColor = (level: 'easy' | 'medium' | 'hard'): string => {
     switch(level) {
       case 'easy': return '#4caf50'; // Green
       case 'medium': return '#ff9800'; // Orange
       case 'hard': return '#f44336'; // Red
+    }
+  };
+  
+  // Map difficulty level to color
+  const getDifficultyColor = (level: DifficultyLevel): string => {
+    return getLevelColor(level);
+  };
+  
+  // Map technical level to color
+  const getTechnicalColor = (level: TechnicalLevel): string => {
+    switch(level) {
+      case 'none': return '#9e9e9e'; // Gray
+      case 'easy': return getLevelColor('easy');
+      case 'medium': return getLevelColor('medium');
+      case 'hard': return getLevelColor('hard');
+    }
+  };
+  
+  // Map speed level to color
+  const getSpeedColor = (level: SpeedLevel): string => {
+    switch(level) {
+      case 'slow': return getLevelColor('easy');
+      case 'medium': return getLevelColor('medium');
+      case 'fast': return getLevelColor('hard');
+      default: return getLevelColor('medium');
     }
   };
   
@@ -142,13 +177,11 @@ export const RideCard = ({
         <View style={styles.statsContainer}>
           {/* Distance */}
           <View style={styles.statItem}>
-            <MaterialCommunityIcons name="map-marker-distance" size={16} color={Colors.light.text + 'CC'} />
             <ThemedText style={styles.statText}>{distance} ק"מ</ThemedText>
           </View>
           
           {/* Ride Type */}
           <View style={styles.statItem}>
-            <MaterialCommunityIcons name={getRideTypeIcon(rideType)} size={16} color={Colors.light.text + 'CC'} />
             <ThemedText style={styles.statText}>
               {rideType === 'road' ? 'כביש' : 
                rideType === 'offroad' ? 'שטח' : 
@@ -159,43 +192,34 @@ export const RideCard = ({
           
           {/* Bike Type - New */}
           <View style={styles.statItem}>
-            <Ionicons name={getBikeTypeIcon(bikeType)} size={16} color={Colors.light.text + 'CC'} />
             <ThemedText style={styles.statText}>{getBikeTypeName(bikeType)}</ThemedText>
-          </View>
-        </View>
-        
-        {/* Additional Stats (Technical Level) moved to second row */}
-        <View style={[styles.statsContainer, styles.secondaryStatsContainer]}>
-          {/* Technical Level */}
-          <View style={styles.statItem}>
-            <MaterialCommunityIcons name="bike-fast" size={16} color={Colors.light.text + 'CC'} />
-            <ThemedText style={styles.statText}>{getTechnicalLevelText(technicalLevel)}</ThemedText>
           </View>
         </View>
         
         {/* Difficulty and Contact */}
         <View style={styles.footerContainer}>
-          <View style={[styles.difficultyBadge, { backgroundColor: getDifficultyColor(difficultyLevel) + '20', borderColor: getDifficultyColor(difficultyLevel) }]}>
-            <ThemedText style={[styles.difficultyText, { color: getDifficultyColor(difficultyLevel) }]}>
-              {difficultyLevel === 'easy' ? 'קל' : 
-               difficultyLevel === 'medium' ? 'בינוני' : 'קשה'}
-            </ThemedText>
-          </View>
-          
-          {/* Contact options instead of participants count */}
-          <View style={styles.contactContainer}>
-            <TouchableOpacity 
-              style={styles.contactButton}
-              onPress={handleWhatsAppPress}
-            >
-              <Ionicons name="logo-whatsapp" size={22} color="#25D366" />
-            </TouchableOpacity>
-            <TouchableOpacity 
-              style={styles.contactButton}
-              onPress={handlePhonePress}
-            >
-              <Ionicons name="call" size={20} color="#007AFF" />
-            </TouchableOpacity>
+          <View style={styles.badgesContainer}>
+            {/* Speed level badge */}
+            <View style={[styles.speedBadge, { backgroundColor: getSpeedColor(speedLevel) + '20', borderColor: getSpeedColor(speedLevel) }]}>
+              <ThemedText style={[styles.speedText, { color: getSpeedColor(speedLevel) }]}>
+                {getSpeedLevelText(speedLevel)}
+              </ThemedText>
+            </View>
+            
+            {/* Technical level badge */}
+            <View style={[styles.technicalBadge, { backgroundColor: getTechnicalColor(technicalLevel) + '20', borderColor: getTechnicalColor(technicalLevel) }]}>
+              <ThemedText style={[styles.technicalText, { color: getTechnicalColor(technicalLevel) }]}>
+                {getTechnicalLevelText(technicalLevel)}
+              </ThemedText>
+            </View>
+            
+            {/* Difficulty level badge */}
+            <View style={[styles.difficultyBadge, { backgroundColor: getDifficultyColor(difficultyLevel) + '20', borderColor: getDifficultyColor(difficultyLevel) }]}>
+              <ThemedText style={[styles.difficultyText, { color: getDifficultyColor(difficultyLevel) }]}>
+                {difficultyLevel === 'easy' ? 'קושי קל' : 
+                  difficultyLevel === 'medium' ? 'קושי בינוני' : 'קושי קשה'}
+              </ThemedText>
+            </View>
           </View>
         </View>
       </TouchableOpacity>
@@ -292,27 +316,20 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     marginBottom: 12,
-    backgroundColor: Colors.light.background + '80',
-    borderRadius: 8,
-    padding: 10,
-  },
-  secondaryStatsContainer: {
-    marginBottom: 12,
-    justifyContent: 'flex-end',
-    backgroundColor: 'transparent',
-    padding: 0,
-    paddingHorizontal: 4,
+    padding: 4,
+    gap: 6,
   },
   statItem: {
-    flexDirection: 'row-reverse',
     alignItems: 'center',
-    paddingHorizontal: 4,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    backgroundColor: 'rgba(0, 0, 0, 0.05)',
+    borderRadius: 8,
   },
   statText: {
     fontSize: 14,
-    marginLeft: 8,
     color: Colors.light.text,
-    textAlign: 'right',
+    textAlign: 'center',
     fontWeight: '500',
   },
   footerContainer: {
@@ -325,11 +342,15 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
     borderRadius: 8,
     borderWidth: 1,
+    flexDirection: 'row-reverse',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   difficultyText: {
     fontSize: 13,
     fontWeight: 'bold',
     letterSpacing: 0.2,
+    marginRight: 4,
   },
   contactContainer: {
     flexDirection: 'row',
@@ -348,5 +369,40 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.1,
     shadowRadius: 1,
     elevation: 2,
+  },
+  badgesContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  technicalBadge: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 8,
+    borderWidth: 1,
+    flexDirection: 'row-reverse',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  technicalText: {
+    fontSize: 13,
+    fontWeight: 'bold',
+    letterSpacing: 0.2,
+    marginRight: 4,
+  },
+  speedBadge: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 8,
+    borderWidth: 1,
+    flexDirection: 'row-reverse',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  speedText: {
+    fontSize: 13,
+    fontWeight: 'bold',
+    letterSpacing: 0.2,
+    marginRight: 4,
   },
 });

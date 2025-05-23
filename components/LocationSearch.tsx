@@ -205,23 +205,47 @@ const LocationSearch = forwardRef<LocationSearchRef, LocationSearchProps>(
       try {
         let location = null;
         
-        // Try to get coordinates from fallback first (for speed and reliability)
+        // First check if we have fallback coordinates for quick selection
         if (FALLBACK_COORDINATES[place.placeId as keyof typeof FALLBACK_COORDINATES]) {
           location = FALLBACK_COORDINATES[place.placeId as keyof typeof FALLBACK_COORDINATES];
-        } else if (place.placeId.startsWith('ChIJ')) {
-          // This is a Google place ID, we could fetch details here
-          // For now we'll just use a default location in Israel
-          location = {
-            latitude: 31.5 + (Math.random() * 2 - 1),
-            longitude: 34.8 + (Math.random() * 2 - 1)
-          };
+          console.log('Using fallback coordinates for', place.placeId, location);
+        } else if (place.placeId) {
+          // For Google Place IDs, fetch the coordinates using our proxy
+          try {
+            console.log('Fetching place details for place_id:', place.placeId);
+            
+            // Use our new place details endpoint
+            const placeDetailsUrl = `${Constants.expoConfig?.extra?.proxyUrl.replace('autocomplete', 'place-details')}?place_id=${place.placeId}`;
+            const response = await axios.get(placeDetailsUrl);
+            
+            if (response.data?.result?.geometry?.location) {
+              // Extract location data from the response
+              const locationData = response.data.result.geometry.location;
+              location = {
+                latitude: locationData.latitude || locationData.lat,
+                longitude: locationData.longitude || locationData.lng
+              };
+              console.log('Successfully fetched coordinates:', location);
+            } else {
+              console.log('Place details response did not contain location data', response.data);
+              throw new Error('No location data in response');
+            }
+          } catch (error) {
+            console.error('Error fetching place details:', error);
+            // Fall back to approximate coordinates for Israel if API fails
+            location = {
+              latitude: 31.5 + (Math.random() * 2 - 1),
+              longitude: 34.8 + (Math.random() * 2 - 1)
+            };
+            console.log('Using fallback random coordinates in Israel:', location);
+          }
         } else {
-          // In a real app, you would fetch place details to get coordinates
-          // For now, we'll just use random coordinates as an example
+          // Last resort fallback
           location = {
             latitude: 31.5 + (Math.random() * 2 - 1),
             longitude: 34.8 + (Math.random() * 2 - 1)
           };
+          console.log('No place ID available, using random coordinates:', location);
         }
         
         onLocationSelect({
@@ -233,7 +257,7 @@ const LocationSearch = forwardRef<LocationSearchRef, LocationSearchProps>(
         setShowResults(false);
         setPredictions([]);
       } catch (error) {
-        console.error('Error getting place details:', error);
+        console.error('Error in handleSelectPlace:', error);
         onLocationSelect({
           description: place.description,
           location: null

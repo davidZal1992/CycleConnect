@@ -16,6 +16,7 @@ const app = express();
 const port = process.env.PORT || 3000;
 const GOOGLE_API_KEY = process.env.GOOGLE_API_KEY || '';
 const PLACES_API_URL = 'https://places.googleapis.com/v1/places:autocomplete';
+const PLACE_DETAILS_API_URL = 'https://places.googleapis.com/v1/places/';
 
 // Verify the API key is available
 if (!GOOGLE_API_KEY) {
@@ -121,6 +122,66 @@ app.post('/places-proxy/autocomplete', async (req, res) => {
       res.status(error.response.status).json(error.response.data);
     } else {
       res.status(500).json({ error: 'An error occurred while proxying the request' });
+    }
+  }
+});
+
+/**
+ * Proxy endpoint for Google Place Details API (using Places API v1)
+ * 
+ * This endpoint fetches detailed information about a place by its place_id.
+ * It uses the new Places API v1 format.
+ */
+app.get('/places-proxy/place-details', async (req, res) => {
+  try {
+    // Get place_id from request query
+    const placeId = req.query.place_id;
+    
+    if (!placeId) {
+      return res.status(400).json({ error: 'place_id parameter is required' });
+    }
+    
+    // Log request (hiding API key)
+    console.log('Place Details request for place_id:', placeId);
+    
+    // Make the request to the Places API v1
+    const response = await axios({
+      method: 'get',
+      url: `${PLACE_DETAILS_API_URL}${placeId}`,
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Goog-Api-Key': GOOGLE_API_KEY,
+        'X-Goog-FieldMask': 'displayName,formattedAddress,location'
+      }
+    });
+    
+    console.log('Place Details response status:', response.status);
+    console.log('Place Details response data (sample):', 
+      JSON.stringify(response.data).substring(0, 300) + '...');
+    
+    // Format the response to match the structure expected by the client
+    const formattedResponse = {
+      result: {
+        name: response.data.displayName?.text || '',
+        formatted_address: response.data.formattedAddress || '',
+        geometry: {
+          location: response.data.location || { lat: 0, lng: 0 }
+        }
+      },
+      status: "OK"
+    };
+    
+    // Return the formatted response
+    res.json(formattedResponse);
+    
+  } catch (error) {
+    console.error('Place Details Proxy Error:', error.message);
+    if (error.response) {
+      console.error('Error response status:', error.response.status);
+      console.error('Error response data:', JSON.stringify(error.response.data));
+      res.status(error.response.status).json(error.response.data);
+    } else {
+      res.status(500).json({ error: 'An error occurred while fetching place details' });
     }
   }
 });

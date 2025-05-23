@@ -1,19 +1,16 @@
 import { RideCard } from '@/components/RideCard';
 import { ThemedText } from '@/components/ThemedText';
 import { Colors } from '@/constants/Colors';
-import { mockRides } from '@/data/mockRides';
 import { Ionicons } from '@expo/vector-icons';
 import Slider from '@react-native-community/slider';
-import * as Location from 'expo-location';
 import { useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import {
-    Alert,
+    ActivityIndicator,
     Image,
     Modal,
     ScrollView,
     StyleSheet,
-    Switch,
     TextInput,
     TouchableOpacity,
     View
@@ -23,17 +20,24 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 // Define allowed filter categories for type safety
 type FilterCategory = 'type' | 'difficulty' | 'technical' | 'speed' | 'bikeType';
 
-// Interface for user's location
-interface UserLocation {
-  latitude: number;
-  longitude: number;
-}
+// בשביל קוד מסודר, נייצר פונקציית עזר לפורמט תאריכים
+const formatDateAndTime = (dateObj: Date): { date: string, time: string } => {
+  const day = dateObj.getDate().toString().padStart(2, '0');
+  const month = (dateObj.getMonth() + 1).toString().padStart(2, '0');
+  const year = dateObj.getFullYear();
+  const hours = dateObj.getHours().toString().padStart(2, '0');
+  const minutes = dateObj.getMinutes().toString().padStart(2, '0');
+  
+  return {
+    date: `${day}/${month}/${year}`,
+    time: `${hours}:${minutes}`
+  };
+};
 
 export default function HomeScreen() {
   const [searchQuery, setSearchQuery] = useState('');
   const [isFilterModalVisible, setFilterModalVisible] = useState(false);
   const [distanceRange, setDistanceRange] = useState(30); // Default 30km
-  const [locationRange, setLocationRange] = useState(15); // Default 15km
   
   // Multiple selection filters
   const [selectedTypes, setSelectedTypes] = useState<string[]>([]);
@@ -44,81 +48,16 @@ export default function HomeScreen() {
   
   const [filtersApplied, setFiltersApplied] = useState(false);
   
-  // Location-based filtering
-  const [useLocation, setUseLocation] = useState(false);
-  const [userLocation, setUserLocation] = useState<UserLocation | null>(null);
-  const [locationLoading, setLocationLoading] = useState(false);
-  
-  // Get user's location using expo-location
-  useEffect(() => {
-    if (useLocation && !userLocation) {
-      (async () => {
-        setLocationLoading(true);
-        
-        try {
-          // Request location permissions
-          const { status } = await Location.requestForegroundPermissionsAsync();
-          
-          if (status !== 'granted') {
-            Alert.alert(
-              'שגיאת הרשאות',
-              'לא התקבלו הרשאות מיקום. לא ניתן לסנן לפי מרחק.',
-              [{ text: 'אישור', onPress: () => setUseLocation(false) }]
-            );
-            setLocationLoading(false);
-            return;
-          }
-          
-          // Get current location
-          const location = await Location.getCurrentPositionAsync({
-            accuracy: Location.Accuracy.Balanced
-          });
-          
-          setUserLocation({
-            latitude: location.coords.latitude,
-            longitude: location.coords.longitude
-          });
-        } catch (error) {
-          console.error('Error getting location:', error);
-          Alert.alert(
-            'שגיאת מיקום',
-            'לא הצלחנו לקבל את המיקום שלך. בדוק את ההגדרות ונסה שוב.',
-            [{ text: 'אישור', onPress: () => setUseLocation(false) }]
-          );
-        } finally {
-          setLocationLoading(false);
-        }
-      })();
-    }
-  }, [useLocation]);
-  
-  // Calculate distance between two coordinates using Haversine formula
-  const calculateDistance = (lat1: number, lon1: number, lat2: number, lon2: number): number => {
-    const R = 6371; // Radius of the earth in km
-    const dLat = (lat2 - lat1) * Math.PI / 180;
-    const dLon = (lon2 - lon1) * Math.PI / 180;
-    const a = 
-      Math.sin(dLat/2) * Math.sin(dLat/2) +
-      Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * 
-      Math.sin(dLon/2) * Math.sin(dLon/2);
-    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a)); 
-    const distance = R * c; // Distance in km
-    return distance;
-  };
-  
-  // Calculate the distance from user to each ride location
-  const getDistanceToRide = (rideCoordinates: { latitude: number, longitude: number } | undefined): number | null => {
-    if (!userLocation || !rideCoordinates) return null;
-    
-    return calculateDistance(
-      userLocation.latitude,
-      userLocation.longitude,
-      rideCoordinates.latitude,
-      rideCoordinates.longitude
-    );
-  };
-  
   const toggleFilter = (category: FilterCategory, value: string) => {
+    console.log(`Toggling ${category} filter: ${value}`);
+    console.log(`Before toggle - ${category} selected:`, 
+      category === 'type' ? selectedTypes :
+      category === 'difficulty' ? selectedDifficulties :
+      category === 'technical' ? selectedTechnicalLevels :
+      category === 'speed' ? selectedSpeeds :
+      category === 'bikeType' ? selectedBikeTypes : []
+    );
+    
     switch(category) {
       case 'type':
         setSelectedTypes(prev => 
@@ -126,9 +65,18 @@ export default function HomeScreen() {
         );
         break;
       case 'difficulty':
-        setSelectedDifficulties(prev => 
-          prev.includes(value) ? prev.filter(item => item !== value) : [...prev, value]
-        );
+        console.log(`Toggle difficulty: ${value}`);
+        console.log('Current selectedDifficulties:', selectedDifficulties);
+        // This is the exact string value used to check for inclusion
+        console.log('Hard key check:', 'hard' === value, value === 'hard');
+        
+        setSelectedDifficulties(prev => {
+          const newDifficulties = prev.includes(value) 
+            ? prev.filter(item => item !== value) 
+            : [...prev, value];
+          console.log(`New difficulties after toggling ${value}:`, newDifficulties);
+          return newDifficulties;
+        });
         break;
       case 'technical':
         setSelectedTechnicalLevels(prev => 
@@ -141,86 +89,190 @@ export default function HomeScreen() {
         );
         break;
       case 'bikeType':
-        setSelectedBikeTypes(prev => 
-          prev.includes(value) ? prev.filter(item => item !== value) : [...prev, value]
-        );
+        console.log(`Toggle bike type: ${value}`);
+        console.log('Current selectedBikeTypes:', selectedBikeTypes);
+        
+        setSelectedBikeTypes(prev => {
+          const newBikeTypes = prev.includes(value) 
+            ? prev.filter(item => item !== value) 
+            : [...prev, value];
+          console.log(`New bike types after toggling ${value}:`, newBikeTypes);
+          return newBikeTypes;
+        });
         break;
     }
   };
   
   const applyFilters = () => {
-    setFiltersApplied(true);
+    console.log("Applied filters:");
+    console.log("Type:", selectedTypes);
+    console.log("Difficulty:", selectedDifficulties);
+    console.log("Technical:", selectedTechnicalLevels);
+    console.log("Speed:", selectedSpeeds);
+    console.log("Bike type:", selectedBikeTypes);
+    console.log("Distance range:", distanceRange);
+    
+    // Test specific issue with difficulty filtering
+    if (selectedDifficulties.length > 0) {
+      let testFilter = rides.filter(ride => 
+        selectedDifficulties.includes(ride.difficultyLevel)
+      );
+      
+      console.log("Difficulty filtered rides:", testFilter.map(r => ({
+        title: r.title,
+        difficulty: r.difficultyLevel
+      })));
+    }
+    
+    // Test specific issue with bike type filtering
+    if (selectedBikeTypes.length > 0) {
+      let testFilter = rides.filter(ride => 
+        selectedBikeTypes.includes(ride.bikeType || 'analog')
+      );
+      
+      console.log("Bike type filtered rides:", testFilter.map(r => ({
+        title: r.title,
+        bikeType: r.bikeType || 'analog'
+      })));
+    }
+    
+    // Set filters as applied if any filter is selected
+    const hasAnyFilter = 
+      selectedTypes.length > 0 || 
+      selectedDifficulties.length > 0 || 
+      selectedTechnicalLevels.length > 0 || 
+      selectedSpeeds.length > 0 || 
+      selectedBikeTypes.length > 0 ||
+      distanceRange < 100; // If distance is limited
+    
+    console.log("Has any filter:", hasAnyFilter);
+    setFiltersApplied(hasAnyFilter);
+    
+    // Close the modal
     setFilterModalVisible(false);
+    
+    // Force re-filtering
+    const filtered = getFilteredRides();
+    console.log("Filtered rides count:", filtered.length);
+    setFilteredRides(filtered);
   };
   
   const clearFilters = () => {
+    console.log('Clearing all filters');
+    
+    // Reset all filter arrays to empty
     setSelectedTypes([]);
     setSelectedDifficulties([]);
     setSelectedTechnicalLevels([]);
     setSelectedSpeeds([]);
     setSelectedBikeTypes([]);
-    setDistanceRange(30);
-    setLocationRange(15);
+    
+    // Reset distance range to maximum
+    setDistanceRange(100);
+    
+    // Reset search query
+    setSearchQuery('');
+    
+    // Set filters as not applied
     setFiltersApplied(false);
+    
+    // Log the state after clearing
+    console.log("After clearing filters:");
+    console.log("selectedTypes:", []);
+    console.log("selectedDifficulties:", []);
+    console.log("selectedBikeTypes:", []);
+    console.log("distanceRange:", 100);
+    
+    // Force update filtered rides to show all rides
+    console.log("Resetting to all rides:", rides.length);
+    setFilteredRides(rides);
   };
   
   // Filter rides based on search and filter criteria
   const getFilteredRides = () => {
-    return mockRides.filter(ride => {
-      // Text search (title or location)
-      if (searchQuery) {
-        const normalizedQuery = searchQuery.trim().toLowerCase();
-        const matchesSearch = 
-          ride.title.toLowerCase().includes(normalizedQuery) ||
-          ride.location.toLowerCase().includes(normalizedQuery);
-        
-        if (!matchesSearch) return false;
+    // Use the rides state variable instead of mockRides directly
+    let results = [...rides];
+    
+    console.log("Starting filtering with", results.length, "rides");
+    
+    // Filter by search query (title or location)
+    if (searchQuery.trim() !== '') {
+      const normalizedQuery = searchQuery.trim().toLowerCase();
+      results = results.filter(ride => {
+        const matchesTitle = ride.title.toLowerCase().includes(normalizedQuery);
+        const matchesLocation = ride.location.toLowerCase().includes(normalizedQuery);
+        return matchesTitle || matchesLocation;
+      });
+      console.log("After search filter:", results.length, "rides remain");
+    }
+    
+    // Only apply other filters if filters are applied
+    if (filtersApplied) {
+      // Ride type filter
+      if (selectedTypes.length > 0) {
+        console.log("Filtering by types:", selectedTypes);
+        results = results.filter(ride => selectedTypes.includes(ride.rideType));
+        console.log("After type filter:", results.length, "rides remain");
       }
       
-      // Only apply other filters if filters are applied
-      if (filtersApplied) {
-        // Ride type filter
-        if (selectedTypes.length > 0 && !selectedTypes.includes(ride.rideType)) {
-          return false;
-        }
+      // Difficulty level filter
+      if (selectedDifficulties.length > 0) {
+        console.log("Filtering by difficulties:", selectedDifficulties);
+        console.log("Current rides before difficulty filter:", results.map(r => ({ title: r.title, difficulty: r.difficultyLevel })));
         
-        // Difficulty level filter
-        if (selectedDifficulties.length > 0 && !selectedDifficulties.includes(ride.difficultyLevel)) {
-          return false;
-        }
+        results = results.filter(ride => {
+          const difficulty = ride.difficultyLevel;
+          const isIncluded = selectedDifficulties.includes(difficulty);
+          console.log(`Checking ride "${ride.title}" with difficulty "${difficulty}": ${isIncluded ? 'KEEP' : 'FILTER OUT'}`);
+          return isIncluded;
+        });
         
-        // Technical level filter
-        if (selectedTechnicalLevels.length > 0 && !selectedTechnicalLevels.includes(ride.technicalLevel)) {
-          return false;
-        }
-        
-        // Speed level filter
-        if (selectedSpeeds.length > 0 && !selectedSpeeds.includes(ride.speedLevel)) {
-          return false;
-        }
-        
-        // Bike type filter
-        if (selectedBikeTypes.length > 0 && !selectedBikeTypes.includes(ride.bikeType || 'analog')) {
-          return false;
-        }
-        
-        // Distance filter 
-        if (ride.distance > distanceRange) {
-          return false;
-        }
-        
-        // Location range filter - if location filtering is enabled
-        if (useLocation && userLocation && ride.coordinates) {
-          const distanceToRide = getDistanceToRide(ride.coordinates);
-          if (distanceToRide !== null && distanceToRide > locationRange) {
-            return false;
-          }
-        }
+        console.log("After difficulty filter:", results.length, "rides remain");
       }
       
-      // Ride passes all filters
-      return true;
-    });
+      // Technical level filter
+      if (selectedTechnicalLevels.length > 0) {
+        results = results.filter(ride => selectedTechnicalLevels.includes(ride.technicalLevel));
+        console.log("After technical filter:", results.length, "rides remain");
+      }
+      
+      // Speed level filter
+      if (selectedSpeeds.length > 0) {
+        results = results.filter(ride => selectedSpeeds.includes(ride.speedLevel));
+        console.log("After speed filter:", results.length, "rides remain");
+      }
+      
+      // Bike type filter
+      if (selectedBikeTypes.length > 0) {
+        console.log("Filtering by bike types:", selectedBikeTypes);
+        
+        // Log each ride's bike type before filtering
+        console.log("Rides before bike type filtering:", results.length);
+        results.forEach(ride => {
+          const bikeType = ride.bikeType || 'analog';
+          console.log(`Ride "${ride.title}": bikeType = ${bikeType}`);
+        });
+        
+        // Filter rides that match ANY of the selected bike types
+        results = results.filter(ride => {
+          const bikeType = ride.bikeType || 'analog';
+          const matches = selectedBikeTypes.includes(bikeType);
+          console.log(`Ride "${ride.title}" with bikeType "${bikeType}": ${matches ? 'KEEP' : 'REMOVE'}`);
+          return matches;
+        });
+        
+        console.log("After bike type filter:", results.length, "rides remain");
+      }
+      
+      // Distance filter 
+      if (distanceRange < 100) { // Only if not at max
+        results = results.filter(ride => ride.distance <= distanceRange);
+        console.log("After distance filter:", results.length, "rides remain");
+      }
+    }
+    
+    console.log("Final filtered rides:", results.length);
+    return results;
   };
   
   const FilterTag = ({ 
@@ -244,19 +296,220 @@ export default function HomeScreen() {
   
   const router = useRouter();
   
+  // Add state for rides
+  const [rides, setRides] = useState<any[]>([]);
+  const [filteredRides, setFilteredRides] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [activeFilters, setActiveFilters] = useState<any>({});
+  
+  // Fetch rides from API or mock data
+  useEffect(() => {
+    // Simulated API fetch
+    setTimeout(() => {
+      // Mock data - in a real app, this would come from your API
+      const date1 = new Date('2025-06-01T07:30:00');
+      const date2 = new Date('2025-06-02T16:00:00');
+      const date3 = new Date('2025-06-03T18:30:00');
+      const date4 = new Date('2025-06-04T06:00:00');
+      const date5 = new Date('2025-06-05T10:00:00');
+      
+      // Log before setting up the rides
+      console.log("Setting up mock rides with these difficulty values:");
+      console.log("קל (easy), בינוני (medium), קשה (hard)");
+      
+      const mockRides = [
+        {
+          id: '1',
+          title: 'רכיבת בוקר בפארק הירקון',
+          date: formatDateAndTime(date1).date,
+          time: formatDateAndTime(date1).time,
+          organizer: {
+            id: '101',
+            name: 'אבי כהן',
+            avatar: 'https://randomuser.me/api/portraits/men/32.jpg',
+          },
+          participantsCount: 3,
+          maxParticipants: 8,
+          distance: 25,
+          location: 'פארק הירקון, תל אביב',
+          coordinates: { latitude: 32.099, longitude: 34.815 }, // Yarkon Park
+          rideType: 'road',
+          difficultyLevel: 'medium',
+          technicalLevel: 'easy',
+          speedLevel: 'medium',
+          bikeType: 'analog'
+        },
+        {
+          id: '2',
+          title: 'רכיבת שטח ביער בן שמן',
+          date: formatDateAndTime(date2).date,
+          time: formatDateAndTime(date2).time,
+          organizer: {
+            id: '102',
+            name: 'מיכל לוי',
+            avatar: 'https://randomuser.me/api/portraits/women/44.jpg',
+          },
+          participantsCount: 5,
+          maxParticipants: 10,
+          distance: 18,
+          location: 'יער בן שמן',
+          coordinates: { latitude: 31.996, longitude: 34.947 }, // Ben Shemen Forest
+          rideType: 'trails',
+          difficultyLevel: 'hard',
+          technicalLevel: 'medium',
+          speedLevel: 'slow',
+          bikeType: 'electric'
+        },
+        {
+          id: '3',
+          title: 'רכיבה עירונית בירושלים',
+          date: formatDateAndTime(date3).date,
+          time: formatDateAndTime(date3).time,
+          organizer: {
+            id: '103',
+            name: 'דוד זלצמן',
+            avatar: 'https://randomuser.me/api/portraits/men/22.jpg',
+          },
+          participantsCount: 2,
+          maxParticipants: 6,
+          distance: 15,
+          location: 'רחביה, ירושלים',
+          coordinates: { latitude: 31.768, longitude: 35.214 }, // Jerusalem
+          rideType: 'urban',
+          difficultyLevel: 'easy',
+          technicalLevel: 'none',
+          speedLevel: 'medium',
+          bikeType: 'electric'
+        },
+        {
+          id: '4',
+          title: 'רכיבת כביש מהירה לאורך החוף',
+          date: formatDateAndTime(date4).date,
+          time: formatDateAndTime(date4).time,
+          organizer: {
+            id: '104',
+            name: 'רון אילון',
+            avatar: 'https://randomuser.me/api/portraits/men/40.jpg',
+          },
+          participantsCount: 8,
+          maxParticipants: 12,
+          distance: 40,
+          location: 'חיפה',
+          coordinates: { latitude: 32.794, longitude: 34.990 }, // Haifa
+          rideType: 'road',
+          difficultyLevel: 'hard',
+          technicalLevel: 'hard',
+          speedLevel: 'fast',
+          bikeType: 'analog'
+        },
+        {
+          id: '5',
+          title: 'טיול אופניים משפחתי',
+          date: formatDateAndTime(date5).date,
+          time: formatDateAndTime(date5).time,
+          organizer: {
+            id: '105',
+            name: 'נועה ברק',
+            avatar: 'https://randomuser.me/api/portraits/women/28.jpg',
+          },
+          participantsCount: 4,
+          maxParticipants: 15,
+          distance: 10,
+          location: 'נתניה',
+          coordinates: { latitude: 32.333, longitude: 34.860 }, // Netanya
+          rideType: 'trails',
+          difficultyLevel: 'easy',
+          technicalLevel: 'none',
+          speedLevel: 'slow',
+          bikeType: 'analog'
+        }
+      ];
+      
+      // Log the difficulty levels directly
+      console.log("Mock rides difficulty values:");
+      mockRides.forEach(ride => {
+        console.log(`${ride.title}: ${ride.difficultyLevel}`);
+      });
+      
+      setRides(mockRides);
+      setFilteredRides(mockRides);
+      setLoading(false);
+    }, 1500);
+  }, []);
+  
+  // Apply all filters 
+  useEffect(() => {
+    if (rides.length === 0) return;
+    
+    // Create a copy of the original rides
+    let filtered = [...rides];
+    
+    // Filter by ride type
+    if (activeFilters.rideType && activeFilters.rideType.length > 0) {
+      filtered = filtered.filter(ride => 
+        activeFilters.rideType.includes(ride.rideType)
+      );
+    }
+    
+    // Filter by difficulty level
+    if (activeFilters.difficultyLevel && activeFilters.difficultyLevel.length > 0) {
+      filtered = filtered.filter(ride => 
+        activeFilters.difficultyLevel.includes(ride.difficultyLevel)
+      );
+    }
+    
+    setFilteredRides(filtered);
+  }, [rides, activeFilters]);
+  
+  // Handle filter changes
+  const handleFilterChange = (filters: any) => {
+    setActiveFilters(filters);
+  };
+  
+  // עדכון הקוד כך שיציג את הרכיבות המסוננות בכל פעם שמשתנה חיפוש או פילטרים
+  useEffect(() => {
+    console.log("Filtering update triggered");
+    console.log("Search query:", searchQuery);
+    console.log("Filters applied:", filtersApplied);
+    
+    // Get filtered rides based on current filters and search
+    const filteredResults = getFilteredRides();
+    console.log(`Found ${filteredResults.length} rides after filtering`);
+    
+    // Update the state with filtered results
+    setFilteredRides(filteredResults);
+  }, [
+    searchQuery, 
+    filtersApplied, 
+    selectedTypes, 
+    selectedDifficulties, 
+    selectedTechnicalLevels, 
+    selectedSpeeds, 
+    selectedBikeTypes, 
+    distanceRange
+  ]);
+  
+  // Print out the difficultyLevel values for each ride for debugging
+  useEffect(() => {
+    if (rides.length > 0) {
+      console.log("All rides with difficulty levels:");
+      rides.forEach(ride => {
+        console.log(`Ride "${ride.title}": ${ride.difficultyLevel}`);
+      });
+    }
+  }, [rides]);
+  
   return (
     <SafeAreaView style={{ flex: 1 }} edges={['bottom']}>
       {/* Main Content */}
       <ScrollView 
         style={styles.container}
-        contentContainerStyle={styles.contentContainer}
+        contentContainerStyle={styles.scrollContent}
       >
         {/* Header Section with Welcome and Name */}
-        <View style={styles.headerContainer}>
-          <View style={styles.welcomeSection}>
-            <ThemedText style={styles.welcomeSmallText}>ברוך הבא,</ThemedText>
-            <ThemedText style={styles.nameText}>דוד זלצמן</ThemedText>
-          </View>
+        <View style={styles.header}>
+          <ThemedText style={styles.title}>ברוך הבא,</ThemedText>
+          <ThemedText style={styles.subtitle}>דוד זלצמן</ThemedText>
         </View>
         
         {/* Featured Banner */}
@@ -274,7 +527,7 @@ export default function HomeScreen() {
         </View>
         
         {/* Search Bar */}
-        <View style={styles.searchBarContainer}>
+        <View style={styles.searchContainer}>
           <TouchableOpacity 
             style={[
               styles.filterButton, 
@@ -317,78 +570,59 @@ export default function HomeScreen() {
             רכיבות מתוכננות
           </ThemedText>
           
-          {mockRides.length > 0 ? (
-            // Filter rides based on search query and filters
-            (() => {
-              const filteredRides = getFilteredRides();
-              
-              // If location filtering is on, sort by distance
-              if (useLocation && userLocation) {
-                filteredRides.sort((a, b) => {
-                  const distA = getDistanceToRide(a.coordinates) || 9999;
-                  const distB = getDistanceToRide(b.coordinates) || 9999;
-                  return distA - distB;
-                });
-              }
-              
-              // Display ride cards or "no results" message
-              return filteredRides.length > 0 ? (
-                <View style={styles.ridesContainer}>
-                  {filteredRides.map(ride => {
-                    // Calculate distance to ride if location is available
-                    const distanceToRide = useLocation && userLocation && ride.coordinates 
-                      ? getDistanceToRide(ride.coordinates) 
-                      : null;
-                    
-                    return (
-                      <View key={ride.id}>
-                        <RideCard {...ride} />
-                        {distanceToRide !== null && (
-                          <View style={styles.distanceBadge}>
-                            <ThemedText style={styles.distanceBadgeText}>
-                              {distanceToRide.toFixed(1)} ק"מ ממך
-                            </ThemedText>
-                          </View>
-                        )}
-                      </View>
-                    );
-                  })}
+          {loading ? (
+            <View style={styles.loadingContainer}>
+              <ActivityIndicator size="large" color={Colors.light.primary} />
+              <ThemedText style={styles.loadingText}>טוען רכיבות...</ThemedText>
+            </View>
+          ) : filteredRides.length > 0 ? (
+            <View style={styles.ridesContainer}>
+              {filteredRides.map(ride => (
+                <View key={ride.id} style={styles.rideCardContainer}>
+                  <RideCard {...ride} />
                 </View>
-              ) : (
-                <View style={styles.actionCard}>
-                  <ThemedText style={styles.cardContent}>
-                    {searchQuery 
-                      ? `לא נמצאו רכיבות התואמות את החיפוש "${searchQuery}"` 
-                      : 'לא נמצאו רכיבות העונות לפילטרים שנבחרו'}
-                  </ThemedText>
-                  {filtersApplied && (
-                    <TouchableOpacity 
-                      style={styles.clearFiltersButton} 
-                      onPress={clearFilters}
-                    >
-                      <ThemedText style={styles.clearFiltersText}>
-                        נקה פילטרים
-                      </ThemedText>
-                    </TouchableOpacity>
-                  )}
-                </View>
-              );
-            })()
+              ))}
+            </View>
           ) : (
-            // No rides message
-            <View style={styles.actionCard}>
-              <ThemedText style={styles.cardContent}>
-                טרם נקבעו רכיבות. חפש רכיבות באזורך או צור רכיבה חדשה!
+            <View style={styles.emptyStateContainer}>
+              <Ionicons 
+                name="search-outline" 
+                size={60} 
+                color={Colors.light.text + '40'} 
+              />
+              <ThemedText style={styles.emptyStateTitle}>
+                {searchQuery 
+                  ? `לא נמצאו רכיבות` 
+                  : 'לא נמצאו רכיבות מתאימות'}
               </ThemedText>
+              <ThemedText style={styles.emptyStateDescription}>
+                {searchQuery 
+                  ? `החיפוש "${searchQuery}" לא החזיר תוצאות` 
+                  : 'נסה להסיר חלק מהפילטרים כדי לראות יותר רכיבות'}
+              </ThemedText>
+              
+              {filtersApplied && (
+                <View style={styles.emptyStateButtonsContainer}>
+                  <TouchableOpacity 
+                    style={styles.emptyStateButton} 
+                    onPress={clearFilters}
+                  >
+                    <ThemedText style={styles.emptyStateButtonText}>
+                      נקה
+                    </ThemedText>
+                  </TouchableOpacity>
+                </View>
+              )}
             </View>
           )}
           
-          {/* Add Ride Button */}
+          {/* כפתור הוספת רכיבה - מוזז למטה */}
           <TouchableOpacity 
-            style={styles.floatingAddButton}
+            style={styles.addButton}
             onPress={() => router.push('/post-ride')}
           >
-            <Ionicons name="add" size={28} color="white" />
+            <Ionicons name="add" size={22} color="white" style={styles.addButtonIcon} />
+            <ThemedText style={styles.addButtonText}>הוספת רכיבה</ThemedText>
           </TouchableOpacity>
         </View>
       </ScrollView>
@@ -411,53 +645,7 @@ export default function HomeScreen() {
             </View>
             
             <ScrollView style={styles.filterScrollView}>
-              {/* Location Based Filtering - New Section */}
-              <View style={styles.filterSection}>
-                <View style={styles.locationFilterHeader}>
-                  <ThemedText style={styles.filterSectionTitle}>סינון לפי מיקום שלי</ThemedText>
-                  <Switch
-                    trackColor={{ false: '#767577', true: Colors.light.primary + '50' }}
-                    thumbColor={useLocation ? Colors.light.primary : '#f4f3f4'}
-                    ios_backgroundColor="#3e3e3e"
-                    onValueChange={setUseLocation}
-                    value={useLocation}
-                  />
-                </View>
-                
-                {useLocation && (
-                  <>
-                    {locationLoading ? (
-                      <ThemedText style={styles.loadingText}>מאתר את המיקום שלך...</ThemedText>
-                    ) : userLocation ? (
-                      <View style={styles.locationSettings}>
-                        <ThemedText style={styles.locationFoundText}>המיקום שלך נמצא</ThemedText>
-                        <View style={styles.sliderContainer}>
-                          <ThemedText style={styles.sliderValue}>5</ThemedText>
-                          <Slider
-                            style={styles.slider}
-                            minimumValue={5}
-                            maximumValue={50}
-                            step={5}
-                            value={locationRange}
-                            onValueChange={setLocationRange}
-                            minimumTrackTintColor={Colors.light.primary}
-                            maximumTrackTintColor="#DDDDDD"
-                            thumbTintColor={Colors.light.primary}
-                          />
-                          <ThemedText style={styles.sliderValue}>50</ThemedText>
-                        </View>
-                        <ThemedText style={styles.rangeDescription}>
-                          הצג רכיבות במרחק של עד {locationRange} ק"מ ממך
-                        </ThemedText>
-                      </View>
-                    ) : (
-                      <ThemedText style={styles.locationErrorText}>
-                        לא הצלחנו לקבל את המיקום שלך. אנא ודא שהרשאות מיקום מופעלות.
-                      </ThemedText>
-                    )}
-                  </>
-                )}
-              </View>
+              {/* Location Based Filtering - Removed for now */}
               
               {/* Bike Type - New Section */}
               <View style={styles.filterSection}>
@@ -530,17 +718,17 @@ export default function HomeScreen() {
                 <ThemedText style={styles.filterSectionTitle}>רמת קושי</ThemedText>
                 <View style={styles.tagsContainer}>
                   <FilterTag 
-                    label="קל" 
+                    label="קושי קל" 
                     isSelected={selectedDifficulties.includes('easy')} 
                     onPress={() => toggleFilter('difficulty', 'easy')} 
                   />
                   <FilterTag 
-                    label="בינוני" 
+                    label="קושי בינוני" 
                     isSelected={selectedDifficulties.includes('medium')} 
                     onPress={() => toggleFilter('difficulty', 'medium')} 
                   />
                   <FilterTag 
-                    label="קשה" 
+                    label="קושי קשה" 
                     isSelected={selectedDifficulties.includes('hard')} 
                     onPress={() => toggleFilter('difficulty', 'hard')} 
                   />
@@ -579,17 +767,17 @@ export default function HomeScreen() {
                 <ThemedText style={styles.filterSectionTitle}>מהירות</ThemedText>
                 <View style={styles.tagsContainer}>
                   <FilterTag 
-                    label="איטי" 
+                    label="קצב איטי" 
                     isSelected={selectedSpeeds.includes('slow')} 
                     onPress={() => toggleFilter('speed', 'slow')} 
                   />
                   <FilterTag 
-                    label="זורם" 
+                    label="קצב בינוני" 
                     isSelected={selectedSpeeds.includes('medium')} 
                     onPress={() => toggleFilter('speed', 'medium')} 
                   />
                   <FilterTag 
-                    label="מהיר" 
+                    label="קצב מהיר" 
                     isSelected={selectedSpeeds.includes('fast')} 
                     onPress={() => toggleFilter('speed', 'fast')} 
                   />
@@ -601,17 +789,17 @@ export default function HomeScreen() {
             <View style={styles.modalButtonsContainer}>
               {filtersApplied && (
                 <TouchableOpacity 
-                  style={styles.clearFiltersButton}
+                  style={styles.emptyStateButton}
                   onPress={clearFilters}
                 >
-                  <ThemedText style={styles.clearFiltersText}>נקה פילטרים</ThemedText>
+                  <ThemedText style={styles.emptyStateButtonText}>נקה</ThemedText>
                 </TouchableOpacity>
               )}
               <TouchableOpacity 
-                style={styles.applyFiltersButton}
+                style={styles.emptyStateButton}
                 onPress={applyFilters}
               >
-                <ThemedText style={styles.applyFiltersText}>סנן</ThemedText>
+                <ThemedText style={styles.emptyStateButtonText}>סנן</ThemedText>
               </TouchableOpacity>
             </View>
           </View>
@@ -624,76 +812,172 @@ export default function HomeScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f5f5f5',
+    backgroundColor: Colors.light.background,
   },
-  contentContainer: {
+  scrollContent: {
     padding: 16,
+    paddingBottom: 20,
   },
-  headerContainer: {
+  header: {
+    marginTop: 10,
+    marginBottom: 16,
+  },
+  title: {
+    fontSize: 16,
+    color: Colors.light.text + '99',
+    textAlign: 'right',
+    marginBottom: 5,
+  },
+  subtitle: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    textAlign: 'right',
+  },
+  searchContainer: {
+    marginVertical: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  filtersContainer: {
+    marginBottom: 16,
+  },
+  filterRow: {
     flexDirection: 'row',
     justifyContent: 'flex-end',
-    alignItems: 'center',
-    marginBottom: 20,
+    marginBottom: 10,
+    flexWrap: 'wrap',
+    gap: 8,
   },
-  welcomeSection: {
-    alignItems: 'flex-end',
+  filterTag: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: '#e0e0e0',
+    backgroundColor: 'white',
   },
-  welcomeSmallText: {
-    fontSize: 18,
+  filterTagSelected: {
+    backgroundColor: Colors.light.tint,
+    borderColor: Colors.light.tint,
+  },
+  filterTagText: {
+    fontSize: 14,
     color: Colors.light.text,
-    marginBottom: 4,
-    textAlign: 'right',
     fontWeight: '500',
   },
-  nameText: {
-    fontSize: 30,
-    fontWeight: 'bold',
-    color: Colors.light.text,
-    textAlign: 'right',
-    letterSpacing: 0.5,
+  filterTagTextSelected: {
+    color: 'white',
   },
-  // Section styling
-  sectionContainer: {
-    marginBottom: 24,
+  locationToggle: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 16,
+    justifyContent: 'flex-end',
+  },
+  toggleText: {
+    marginLeft: 8,
+    fontSize: 16,
+    color: Colors.light.text,
+  },
+  toggleSwitch: {
+    marginLeft: 10,
   },
   sectionTitle: {
-    fontSize: 20,
-    marginBottom: 16,
-    textAlign: 'right',
+    fontSize: 18,
     fontWeight: '600',
-    letterSpacing: 0.5,
+    marginBottom: 10,
+    textAlign: 'right',
   },
   ridesContainer: {
-    marginBottom: 16,
+    marginTop: 10,
   },
-  addRideButton: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: Colors.light.primary,
-    alignItems: 'center',
-    justifyContent: 'center',
+  actionCard: {
+    backgroundColor: 'white',
+    borderRadius: 12,
+    padding: 16,
+    marginVertical: 8,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 3,
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
     elevation: 2,
+    borderWidth: 1,
+    borderColor: Colors.light.border,
   },
-  floatingAddButton: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    backgroundColor: Colors.light.primary,
+  emptyMessageContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  emptyMessageText: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: Colors.light.text,
+    textAlign: 'right',
+    lineHeight: 24,
+    flex: 1,
+  },
+  smallClearFiltersButton: {
+    backgroundColor: 'transparent',
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: Colors.light.primary,
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.2,
-    shadowRadius: 5,
-    elevation: 4,
-    alignSelf: 'center',
-    marginTop: 20,
-    marginBottom: 10,
+    marginRight: 15,
+    height: 32,
+  },
+  smallClearFiltersText: {
+    color: Colors.light.primary,
+    fontWeight: '500',
+    fontSize: 13,
+  },
+  createButton: {
+    backgroundColor: Colors.light.tint,
+    borderRadius: 8,
+    padding: 12,
+    alignItems: 'center',
+    marginTop: 10,
+  },
+  buttonText: {
+    color: 'white',
+    fontWeight: '600',
+    fontSize: 16,
+  },
+  locationWarning: {
+    color: '#f44336',
+    fontSize: 14,
+    textAlign: 'right',
+    marginTop: 5,
+  },
+  locationInfo: {
+    color: '#4caf50',
+    fontSize: 14,
+    textAlign: 'right',
+    marginTop: 5,
+  },
+  loadingContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 20,
+  },
+  loadingText: {
+    marginTop: 10,
+    fontSize: 16,
+    color: Colors.light.text,
+  },
+  emptyContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 40,
+  },
+  emptyText: {
+    fontSize: 16,
+    color: Colors.light.text + 'CC',
+    textAlign: 'center',
   },
   bannerContainer: {
     height: 200,
@@ -744,9 +1028,9 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     borderWidth: 1,
     borderColor: Colors.light.border,
-    marginLeft: 10,
+    marginRight: 10,
     width: 80,
-    height: 38,
+    height: 40,
   },
   filterText: {
     marginRight: 6,
@@ -776,26 +1060,6 @@ const styles = StyleSheet.create({
     textAlign: 'right',
     fontWeight: '400',
   },
-  actionCard: {
-    backgroundColor: Colors.light.card,
-    borderRadius: 12,
-    padding: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 3,
-    elevation: 3,
-    borderWidth: 1,
-    borderColor: Colors.light.border,
-  },
-  cardContent: {
-    color: Colors.light.text,
-    opacity: 0.8,
-    textAlign: 'right',
-    fontSize: 16,
-    lineHeight: 24,
-  },
-  // Modal styles
   newModalContainer: {
     flex: 1,
     backgroundColor: 'rgba(0, 0, 0, 0.4)',
@@ -867,46 +1131,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 12,
   },
-  filterTag: {
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 20,
-    borderWidth: 1,
-    borderColor: '#e0e0e0',
-    backgroundColor: 'white',
-    minWidth: 80,
-    alignItems: 'center',
-  },
-  filterTagSelected: {
-    backgroundColor: Colors.light.primary,
-    borderColor: Colors.light.primary,
-  },
-  filterTagText: {
-    fontSize: 15,
-    color: Colors.light.text,
-    fontWeight: '500',
-  },
-  filterTagTextSelected: {
-    color: 'white',
-  },
-  applyFiltersButton: {
-    backgroundColor: Colors.light.primary,
-    paddingVertical: 10,
-    borderRadius: 25,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginTop: 10,
-    height: 44,
-    width: '40%',
-    alignSelf: 'center',
-  },
-  applyFiltersText: {
-    color: 'white',
-    fontWeight: '600',
-    fontSize: 17,
-    letterSpacing: 0.5,
-  },
-  // Distance badges for ride cards
   distanceBadge: {
     position: 'absolute',
     top: 60,
@@ -923,17 +1147,11 @@ const styles = StyleSheet.create({
     color: Colors.light.primary,
     fontWeight: '600',
   },
-  // Location filter styles
   locationFilterHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: 8,
-  },
-  loadingText: {
-    textAlign: 'center',
-    marginTop: 10,
-    color: Colors.light.text + 'CC',
   },
   locationFoundText: {
     color: '#4caf50',
@@ -955,28 +1173,153 @@ const styles = StyleSheet.create({
     color: Colors.light.text + 'DD',
     textAlign: 'center',
   },
-  // Add missing styles for linter errors
   clearFiltersButton: {
-    backgroundColor: 'transparent',
-    paddingVertical: 10,
-    borderRadius: 25,
-    borderWidth: 1,
-    borderColor: Colors.light.primary,
+    backgroundColor: Colors.light.primary,
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    borderRadius: 20,
     alignItems: 'center',
     justifyContent: 'center',
-    marginTop: 10,
-    marginRight: 10,
-    height: 44,
-    width: '40%',
+    width: 100,
+    height: 36,
+    margin: 0,
   },
   clearFiltersText: {
-    color: Colors.light.primary,
-    fontWeight: '600',
-    fontSize: 16,
+    color: 'white',
+    fontWeight: '500',
+    fontSize: 14,
   },
   modalButtonsContainer: {
     flexDirection: 'row',
     justifyContent: 'center',
+    alignItems: 'center',
     marginTop: 10,
+    gap: 16,
+    height: 36,
+  },
+  applyFiltersButton: {
+    backgroundColor: Colors.light.primary,
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    borderRadius: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+    width: 100,
+    height: 36,
+    margin: 0,
+  },
+  applyFiltersText: {
+    color: 'white',
+    fontWeight: '500',
+    fontSize: 14,
+    letterSpacing: 0.5,
+  },
+  rideCardContainer: {
+    position: 'relative',
+  },
+  sectionContainer: {
+    marginBottom: 20,
+  },
+  addButton: {
+    flexDirection: 'row-reverse',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: Colors.light.primary,
+    borderRadius: 25,
+    padding: 12,
+    marginTop: 20,
+    marginBottom: 16,
+    alignSelf: 'center',
+    width: '60%',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 3,
+    elevation: 3,
+  },
+  addButtonText: {
+    color: 'white',
+    fontWeight: '600',
+    fontSize: 16,
+    marginRight: 8,
+  },
+  addButtonIcon: {
+    marginLeft: 4,
+  },
+  testingDistanceContainer: {
+    padding: 8,
+    backgroundColor: 'rgba(0, 0, 0, 0.7)',
+    borderRadius: 6,
+    margin: 10,
+    alignSelf: 'flex-start',
+    position: 'absolute',
+    top: 10,
+    left: 10,
+    zIndex: 99,
+  },
+  testingDistanceText: {
+    color: 'white',
+    fontSize: 14,
+    fontWeight: '600',
+    textAlign: 'left',
+  },
+  distanceLabelContainer: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    zIndex: 999,
+  },
+  emptyStateContainer: {
+    backgroundColor: 'white',
+    borderRadius: 16,
+    padding: 30,
+    marginVertical: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    elevation: 2,
+    borderWidth: 1,
+    borderColor: Colors.light.border,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  emptyStateTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: Colors.light.text,
+    textAlign: 'center',
+    marginTop: 16,
+    marginBottom: 8,
+  },
+  emptyStateDescription: {
+    fontSize: 15,
+    color: Colors.light.text + 'AA',
+    textAlign: 'center',
+    marginBottom: 24,
+    lineHeight: 20,
+  },
+  emptyStateButtonsContainer: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: 16,
+    marginTop: 10,
+    height: 36,
+  },
+  emptyStateButton: {
+    backgroundColor: Colors.light.primary,
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    borderRadius: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+    width: 100,
+    height: 36,
+  },
+  emptyStateButtonText: {
+    color: 'white',
+    fontWeight: '500',
+    fontSize: 14,
   },
 });
