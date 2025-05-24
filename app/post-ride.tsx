@@ -1,12 +1,13 @@
 import { LocationSearchRef } from '@/components/LocationSearch';
 import { ThemedText } from '@/components/ThemedText';
 import { Colors } from '@/constants/Colors';
+import { mockRides } from '@/data/mockRides';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import Slider from '@react-native-community/slider';
 import axios from 'axios';
 import Constants from 'expo-constants';
-import { router } from 'expo-router';
-import React, { useContext, useRef, useState } from 'react';
+import { router, Stack, useLocalSearchParams } from 'expo-router';
+import React, { useContext, useEffect, useRef, useState } from 'react';
 import {
     ActivityIndicator,
     Alert,
@@ -362,16 +363,103 @@ const styles = StyleSheet.create({
 export default function PostRideScreen() {
   // Get app state from context
   const { isAppReady } = useContext(AppStateContext);
-  
-  // Ride details
+  const { editMode, rideId } = useLocalSearchParams<{ editMode?: string; rideId?: string }>();
+  const isEditMode = editMode === 'true';
+
+  // Refs
+  const searchRef = useRef<LocationSearchRef>(null);
+
+  // States for form fields
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
+  const [date, setDate] = useState(new Date());
+  const [time, setTime] = useState(new Date());
   const [location, setLocation] = useState('');
+  const [locationStatus, setLocationStatus] = useState<'none' | 'loading' | 'error' | 'success'>('none');
+  const [locationCoords, setLocationCoords] = useState<{ latitude: number; longitude: number } | null>(null);
+  const [distance, setDistance] = useState(25);
+  const [maxParticipants, setMaxParticipants] = useState(8);
+  const [filters, setFilters] = useState({
+    type: 'road',
+    difficulty: 'medium',
+    technical: 'none',
+    speed: 'medium',
+    bikeType: 'analog'
+  });
+  
+  // Date and time picker visibility
+  const [isDatePickerVisible, setDatePickerVisibility] = useState(false);
+  const [isTimePickerVisible, setTimePickerVisibility] = useState(false);
+  
+  // Loading state for submission
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  
+  // Effect to load ride data if in edit mode
+  useEffect(() => {
+    if (isEditMode && rideId) {
+      // Find the ride in mock data
+      const rideToEdit = mockRides.find(r => r.id === rideId);
+      
+      if (rideToEdit) {
+        // Populate the form with ride data
+        setTitle(rideToEdit.title);
+        setDescription(rideToEdit.description || '');
+        setLocation(rideToEdit.location);
+        setLocationInput(rideToEdit.location);
+        
+        if (rideToEdit.coordinates) {
+          setLocationCoords(rideToEdit.coordinates);
+          setLocationStatus('success');
+        }
+        
+        // Parse date and time
+        const dateObj = new Date();
+        const [day, month, year] = rideToEdit.date.split('/').map(Number);
+        dateObj.setFullYear(2000 + year, month - 1, day);
+        setDate(dateObj);
+        
+        const timeObj = new Date();
+        const [hours, minutes] = rideToEdit.time.split(':').map(Number);
+        timeObj.setHours(hours, minutes);
+        setTime(timeObj);
+        
+        setDistance(rideToEdit.distance);
+        setMaxParticipants(rideToEdit.maxParticipants || 8);
+        
+        // Set participants based on participantsCount
+        if (rideToEdit.participantsCount) {
+          const count = rideToEdit.participantsCount;
+          setParticipants(count >= 5 ? "5+" : count.toString());
+        }
+        
+        // Set filter values
+        const rideType = rideToEdit.rideType || 'road';
+        const difficulty = rideToEdit.difficultyLevel || 'medium';
+        const technical = rideToEdit.technicalLevel || 'none';
+        const speed = rideToEdit.speedLevel || 'medium';
+        const bikeTypeValue = rideToEdit.bikeType || 'analog';
+        
+        // Update all filter states
+        setSelectedTypes([rideType]);
+        setSelectedDifficulties([difficulty]);
+        setSelectedTechnicalLevels([technical]);
+        setSelectedSpeeds([speed]);
+        setBikeType(bikeTypeValue);
+        
+        // Set filters object for submission
+        setFilters({
+          type: rideType,
+          difficulty: difficulty,
+          technical: technical,
+          speed: speed,
+          bikeType: bikeTypeValue
+        });
+      }
+    }
+  }, [isEditMode, rideId]);
+  
+  // Ride details
   const [locationInput, setLocationInput] = useState('');
-  const [locationCoordinates, setLocationCoordinates] = useState<{ latitude: number; longitude: number } | null>(null);
-  const [distance, setDistance] = useState(30);
-  const [date, setDate] = useState<Date | null>(null);
-  const [time, setTime] = useState<Date | null>(null);
   const [participants, setParticipants] = useState('');
   const [selectedTypes, setSelectedTypes] = useState<string[]>([]);
   const [selectedDifficulties, setSelectedDifficulties] = useState<string[]>([]);
@@ -380,13 +468,10 @@ export default function PostRideScreen() {
   const [bikeType, setBikeType] = useState<string>('analog'); // Default to analog
   
   // Simple location search state
-  const [locationStatus, setLocationStatus] = useState<'idle' | 'loading' | 'error' | 'success'>('idle');
   const [showResults, setShowResults] = useState(false);
   const [searchResults, setSearchResults] = useState<SearchResultItem[]>([]);
   const [validLocationSelected, setValidLocationSelected] = useState(false);
   
-  const [isDatePickerVisible, setDatePickerVisible] = useState(false);
-  const [isTimePickerVisible, setTimePickerVisible] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   
   // Ref for LocationSearch component
@@ -410,7 +495,7 @@ export default function PostRideScreen() {
   const handleLocationSelect = (data: { description: string; location: { latitude: number; longitude: number } | null }) => {
     setLocation(data.description);
     setLocationInput(data.description);
-    setLocationCoordinates(data.location);
+    setLocationCoords(data.location);
     setLocationStatus(data.location ? 'success' : 'error');
     setValidLocationSelected(true);
     Keyboard.dismiss();
@@ -419,11 +504,11 @@ export default function PostRideScreen() {
   
   // Date picker handlers
   const showDatePicker = () => {
-    setDatePickerVisible(true);
+    setDatePickerVisibility(true);
   };
   
   const hideDatePicker = () => {
-    setDatePickerVisible(false);
+    setDatePickerVisibility(false);
   };
   
   const handleConfirmDate = (date: Date) => {
@@ -433,11 +518,11 @@ export default function PostRideScreen() {
   
   // Time picker handlers
   const showTimePicker = () => {
-    setTimePickerVisible(true);
+    setTimePickerVisibility(true);
   };
   
   const hideTimePicker = () => {
-    setTimePickerVisible(false);
+    setTimePickerVisibility(false);
   };
   
   const handleConfirmTime = (time: Date) => {
@@ -449,89 +534,137 @@ export default function PostRideScreen() {
   const toggleFilter = (category: FilterCategory, value: string) => {
     switch(category) {
       case 'type':
-        setSelectedTypes(prev => 
-          prev.includes(value) ? prev.filter(item => item !== value) : [...prev, value]
-        );
+        // For type selection, replace previous selection
+        const newTypes = selectedTypes.includes(value) ? 
+          selectedTypes.filter(item => item !== value) : 
+          [value]; // Only one type can be selected
+        setSelectedTypes(newTypes);
+        setFilters(prev => ({...prev, type: newTypes[0] || prev.type}));
         break;
       case 'difficulty':
-        setSelectedDifficulties(prev => 
-          prev.includes(value) ? prev.filter(item => item !== value) : [...prev, value]
-        );
+        // For difficulty selection, replace previous selection
+        const newDifficulties = selectedDifficulties.includes(value) ? 
+          selectedDifficulties.filter(item => item !== value) : 
+          [value]; // Only one difficulty can be selected
+        setSelectedDifficulties(newDifficulties);
+        setFilters(prev => ({...prev, difficulty: newDifficulties[0] || prev.difficulty}));
         break;
       case 'technical':
-        setSelectedTechnicalLevels(prev => 
-          prev.includes(value) ? prev.filter(item => item !== value) : [...prev, value]
-        );
+        // For technical selection, replace previous selection
+        const newTechnical = selectedTechnicalLevels.includes(value) ? 
+          selectedTechnicalLevels.filter(item => item !== value) : 
+          [value]; // Only one technical level can be selected
+        setSelectedTechnicalLevels(newTechnical);
+        setFilters(prev => ({...prev, technical: newTechnical[0] || prev.technical}));
         break;
       case 'speed':
-        setSelectedSpeeds(prev => 
-          prev.includes(value) ? prev.filter(item => item !== value) : [...prev, value]
-        );
+        // For speed selection, replace previous selection
+        const newSpeeds = selectedSpeeds.includes(value) ? 
+          selectedSpeeds.filter(item => item !== value) : 
+          [value]; // Only one speed can be selected
+        setSelectedSpeeds(newSpeeds);
+        setFilters(prev => ({...prev, speed: newSpeeds[0] || prev.speed}));
         break;
       case 'bikeType':
         setBikeType(value);
+        setFilters(prev => ({...prev, bikeType: value}));
         break;
     }
   };
 
   // Handle form submission
   const handleSubmit = () => {
-    // Basic validation
-    let requiredFields = [];
-    if (!title) requiredFields.push('כותרת');
-    if (!location) requiredFields.push('מיקום');
-    if (!date) requiredFields.push('תאריך');
-    if (!time) requiredFields.push('שעה');
-    if (!selectedDifficulties.length) requiredFields.push('רמת קושי');
-    
-    if (requiredFields.length > 0) {
-      Alert.alert(
-        'שדות חסרים',
-        `אנא מלא את השדות הבאים: ${requiredFields.join(', ')}`,
-        [{ text: 'אישור', style: 'default' }]
-      );
+    // Form validation
+    if (!title) {
+      Alert.alert('שגיאה', 'אנא הכנס כותרת לרכיבה');
       return;
     }
     
-    // Show loading state
-    setIsLoading(true);
+    if (!location || !locationCoords) {
+      Alert.alert('שגיאה', 'אנא בחר מיקום תקין');
+      return;
+    }
+    
+    if (!date) {
+      Alert.alert('שגיאה', 'אנא בחר תאריך');
+      return;
+    }
+    
+    if (!time) {
+      Alert.alert('שגיאה', 'אנא בחר שעה');
+      return;
+    }
+    
+    // Check if required filters are selected
+    if (selectedTypes.length === 0) {
+      Alert.alert('שגיאה', 'אנא בחר סוג רכיבה');
+      return;
+    }
+    
+    if (selectedDifficulties.length === 0) {
+      Alert.alert('שגיאה', 'אנא בחר רמת קושי');
+      return;
+    }
+    
+    // Start submission
+    setIsSubmitting(true);
+    
+    // Format the ride data
+    const formattedDate = `${date.getDate().toString().padStart(2, '0')}/${(date.getMonth() + 1).toString().padStart(2, '0')}/${date.getFullYear().toString().slice(2)}`;
+    const formattedTime = `${time.getHours().toString().padStart(2, '0')}:${time.getMinutes().toString().padStart(2, '0')}`;
+    
+    // Calculate participants and maxParticipants
+    let participantsCount = 0;
+    let maxParticipantsValue = maxParticipants;
+    
+    if (participants) {
+      const parsedParticipants = participants === "5+" ? 5 : parseInt(participants);
+      participantsCount = isEditMode && rideId ? 
+        mockRides.find(r => r.id === rideId)?.participantsCount || parsedParticipants : 
+        parsedParticipants;
+      
+      maxParticipantsValue = participants === "5+" ? 10 : parseInt(participants) * 2;
+    }
+    
+    const rideData = {
+      id: isEditMode && rideId ? rideId : Date.now().toString(),
+      title,
+      description,
+      date: formattedDate,
+      time: formattedTime,
+      location,
+      coordinates: locationCoords,
+      distance,
+      maxParticipants: maxParticipantsValue,
+      organizer: {
+        id: 'current-user',
+        name: 'דוד זלצמן', // Replace with actual user data in a real app
+        avatar: 'https://randomuser.me/api/portraits/men/32.jpg',
+        phone: '050-1234567' // Replace with actual user data in a real app
+      },
+      participantsCount,
+      rideType: selectedTypes.length ? selectedTypes[0] : filters.type,
+      difficultyLevel: selectedDifficulties.length ? selectedDifficulties[0] : filters.difficulty,
+      technicalLevel: selectedTechnicalLevels.length ? selectedTechnicalLevels[0] : filters.technical,
+      speedLevel: selectedSpeeds.length ? selectedSpeeds[0] : filters.speed,
+      bikeType
+    };
     
     setTimeout(() => {
-      // Mock data for a new ride
-      const newRide = {
-        id: `ride-${Date.now()}`,
-        title,
-        description,
-        location,
-        date,
-        time,
-        distance,
-        organizer: {
-          id: 'user1', // In a real app, this would be the current user's ID
-          name: 'דוד זלצמן', // Would be the current user's name
-          avatar: 'https://randomuser.me/api/portraits/men/32.jpg', // Would be the user's avatar
-        },
-        participantsCount: participants === "5+" ? 5 : parseInt(participants) || 1,
-        maxParticipants: participants === "5+" ? 10 : parseInt(participants) * 2,
-        rideType: selectedTypes.length ? selectedTypes[0] : 'road', // Default to road if none selected
-        difficultyLevel: selectedDifficulties.length ? selectedDifficulties[0] : 'easy',
-        technicalLevel: selectedTechnicalLevels.length ? selectedTechnicalLevels[0] : 'none',
-        speedLevel: selectedSpeeds.length ? selectedSpeeds[0] : 'medium',
-        bikeType,
-      };
+      setIsSubmitting(false);
       
-      console.log('Creating new ride:', newRide);
+      // In a real app, you would send this data to your backend
+      console.log('Submitted ride data:', rideData);
       
-      // Hide loading and navigate back
-      setIsLoading(false);
-      
-      // Show success message
-      Alert.alert(
-        'רכיבה נוצרה בהצלחה!',
-        'הרכיבה שלך פורסמה ומוכנה להרשמה',
-        [{ text: 'אישור', onPress: () => router.back() }]
-      );
-    }, 1500); // Simulate network request
+      // Navigate to success screen (could be different for edit vs create)
+      router.push({
+        pathname: '/success',
+        params: { 
+          mode: isEditMode ? 'edit' : 'create',
+          title: rideData.title 
+        }
+      });
+    }, 1500);
   };
   
   // Filter tag component with icon support
@@ -579,8 +712,70 @@ export default function PostRideScreen() {
     </TouchableOpacity>
   );
 
+  const searchLocation = async (text: string) => {
+    if (!text) {
+      setShowResults(false);
+      return;
+    }
+    
+    setLocationInput(text);
+    setLocationStatus('loading');
+    setValidLocationSelected(false);
+    
+    try {
+      const response = await axios.get(PROXY_URL, {
+        params: { input: text, language: 'iw' }
+      });
+      
+      if (response.data.predictions) {
+        const results = response.data.predictions.map((item: any) => ({
+          placeId: item.place_id,
+          description: item.description,
+          mainText: item.structured_formatting.main_text,
+          secondaryText: item.structured_formatting.secondary_text
+        }));
+        
+        setSearchResults(results);
+        setShowResults(true);
+        setLocationStatus('none');
+      } else {
+        // Fallback to mocked locations if API fails
+        const results = FALLBACK_LOCATIONS.map(item => ({
+          placeId: item.placeId,
+          description: item.description,
+          mainText: item.description.split(',')[0],
+          secondaryText: item.description.split(',').slice(1).join(',')
+        }));
+        
+        setSearchResults(results);
+        setShowResults(true);
+        setLocationStatus('error');
+      }
+    } catch (error) {
+      console.error('Error searching locations:', error);
+      
+      // Fallback to mocked locations if API fails
+      const results = FALLBACK_LOCATIONS.map(item => ({
+        placeId: item.placeId,
+        description: item.description,
+        mainText: item.description.split(',')[0],
+        secondaryText: item.description.split(',').slice(1).join(',')
+      }));
+      
+      setSearchResults(results);
+      setShowResults(true);
+      setLocationStatus('error');
+    }
+  };
+
   return (
-    <SafeAreaView style={{ flex: 1 }} edges={['bottom']} key="post-ride-screen">
+    <SafeAreaView style={styles.container} edges={['bottom']}>
+      <Stack.Screen
+        options={{
+          title: isEditMode ? 'עריכת רכיבה' : 'יצירת רכיבה חדשה',
+          headerBackTitle: 'חזרה',
+        }}
+      />
       <KeyboardAvoidingView
         style={{ flex: 1 }} 
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
@@ -739,38 +934,7 @@ export default function PostRideScreen() {
                         setShowResults(true);
                         
                         // Call the proxy API to get search results
-                        axios.get(`${PROXY_URL}?input=${encodeURIComponent(text)}`)
-                          .then(response => {
-                            if (response.data?.suggestions && response.data.suggestions.length > 0) {
-                              // Store all results for dropdown
-                              const results = response.data.suggestions.map((suggestion: any) => ({
-                                description: suggestion.placePrediction.text?.text || '',
-                                placeId: suggestion.placePrediction.placeId,
-                                mainText: suggestion.placePrediction.structuredFormat?.mainText?.text || '',
-                                secondaryText: suggestion.placePrediction.structuredFormat?.secondaryText?.text || ''
-                              }));
-                              
-                              setSearchResults(results);
-                              setLocationStatus('idle');
-                            } else {
-                              setSearchResults([]);
-                              setLocationStatus('error');
-                            }
-                          })
-                          .catch(() => {
-                            // Try local search if API fails
-                            const localResults = FALLBACK_LOCATIONS.filter(
-                              loc => loc.description.toLowerCase().includes(text.toLowerCase())
-                            ).map(loc => ({
-                              description: loc.description,
-                              placeId: loc.placeId,
-                              mainText: loc.description.split(',')[0],
-                              secondaryText: loc.description.split(',')[1] || ''
-                            }));
-                            
-                            setSearchResults(localResults);
-                            setLocationStatus(localResults.length ? 'idle' : 'error');
-                          });
+                        searchLocation(text);
                       } else {
                         setSearchResults([]);
                         setShowResults(false);
@@ -811,7 +975,7 @@ export default function PostRideScreen() {
                           onPress={() => {
                             setLocation(result.description);
                             setLocationInput(result.description);
-                            setLocationCoordinates({
+                            setLocationCoords({
                               latitude: 31.5 + (Math.random() * 2 - 1),
                               longitude: 34.8 + (Math.random() * 2 - 1)
                             });
@@ -1017,12 +1181,18 @@ export default function PostRideScreen() {
                 <FilterTag
                   label="אנלוגי"
                   isSelected={bikeType === 'analog'} 
-                  onPress={() => setBikeType('analog')}
+                  onPress={() => {
+                    setBikeType('analog');
+                    setFilters(prev => ({...prev, bikeType: 'analog'}));
+                  }}
                 />
                 <FilterTag
                   label="חשמלי"
                   isSelected={bikeType === 'electric'} 
-                  onPress={() => setBikeType('electric')}
+                  onPress={() => {
+                    setBikeType('electric');
+                    setFilters(prev => ({...prev, bikeType: 'electric'}));
+                  }}
                 />
               </View>
             </View>
@@ -1031,12 +1201,14 @@ export default function PostRideScreen() {
             <TouchableOpacity 
               style={styles.submitButton}
               onPress={handleSubmit}
-              disabled={isLoading}
+              disabled={isSubmitting}
             >
-              {isLoading ? (
-                <ActivityIndicator color="white" />
+              {isSubmitting ? (
+                <ActivityIndicator color="white" size="small" />
               ) : (
-                <ThemedText style={styles.submitButtonText}>פרסם רכיבה</ThemedText>
+                <ThemedText style={styles.submitButtonText}>
+                  {isEditMode ? 'עדכן רכיבה' : 'צור רכיבה'}
+                </ThemedText>
               )}
             </TouchableOpacity>
           </ScrollView>

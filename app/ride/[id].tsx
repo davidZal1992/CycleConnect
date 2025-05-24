@@ -2,10 +2,11 @@ import { ThemedText } from '@/components/ThemedText';
 import { Colors } from '@/constants/Colors';
 import { mockRides } from '@/data/mockRides';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
-import { Stack, useLocalSearchParams } from 'expo-router';
+import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import {
     ActivityIndicator,
+    Alert,
     Image,
     Linking,
     ScrollView,
@@ -20,6 +21,11 @@ export default function RideDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const [ride, setRide] = useState(mockRides.find(r => r.id === id));
   const [loading, setLoading] = useState(!ride);
+  const router = useRouter();
+  
+  // For demo purposes, assume the current user is the organizer
+  // In a real app, you would check if the current user ID matches the organizer ID
+  const isOrganizer = true;
   
   // Simulate loading if ride not found immediately
   useEffect(() => {
@@ -32,6 +38,43 @@ export default function RideDetailScreen() {
       return () => clearTimeout(timeout);
     }
   }, [id, ride]);
+  
+  const handleEditRide = () => {
+    // Navigate to post-ride screen with edit parameters
+    router.push({
+      pathname: '/post-ride',
+      params: { 
+        editMode: 'true', 
+        rideId: ride?.id,
+        // You could also pass other ride details directly if needed
+      }
+    });
+  };
+  
+  const handleDeleteRide = () => {
+    // Show confirmation dialog
+    Alert.alert(
+      "מחיקת רכיבה",
+      "האם אתה בטוח שברצונך למחוק את הרכיבה?",
+      [
+        {
+          text: "לא",
+          style: "cancel"
+        },
+        {
+          text: "כן",
+          style: "destructive",
+          onPress: () => {
+            // In a real app, you would delete from the server
+            console.log('Delete ride with ID:', ride?.id);
+            // Navigate back after deletion
+            router.back();
+          }
+        }
+      ],
+      { cancelable: true }
+    );
+  };
   
   if (loading) {
     return (
@@ -77,7 +120,27 @@ export default function RideDetailScreen() {
   // Configure the header with custom title
   return (
     <>
-      <Stack.Screen options={{ title: ride.title }} />
+      <Stack.Screen 
+        options={{ 
+          title: ride?.title,
+          headerRight: isOrganizer ? () => (
+            <View style={styles.headerActions}>
+              <TouchableOpacity 
+                style={styles.headerButton} 
+                onPress={handleEditRide}
+              >
+                <Ionicons name="create-outline" size={24} color={Colors.light.primary} />
+              </TouchableOpacity>
+              <TouchableOpacity 
+                style={styles.headerButton} 
+                onPress={handleDeleteRide}
+              >
+                <Ionicons name="trash-outline" size={24} color="#ff3b30" />
+              </TouchableOpacity>
+            </View>
+          ) : undefined
+        }} 
+      />
       
       <SafeAreaView style={styles.container} edges={['bottom']}>
         <ScrollView style={styles.scrollView}>
@@ -484,6 +547,14 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     marginBottom: 8,
     textAlign: 'right',
+  },
+  headerActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  headerButton: {
+    padding: 8,
+    marginLeft: 8,
   },
 }); 
 
