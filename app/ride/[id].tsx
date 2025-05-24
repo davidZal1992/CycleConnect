@@ -13,6 +13,7 @@ import {
     TouchableOpacity,
     View
 } from 'react-native';
+import MapView, { Marker } from 'react-native-maps';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 export default function RideDetailScreen() {
@@ -95,7 +96,12 @@ export default function RideDetailScreen() {
             
             {/* Contact options */}
             <View style={styles.contactOptions}>
-              <View style={styles.spacer} />
+              <View style={styles.bikeTypeContainer}>
+                <ThemedText style={styles.bikeTypeText}>
+                  {ride.bikeType === 'electric' ? 'חשמלי' : 'אנלוגי'}
+                </ThemedText>
+              </View>
+              
               <View style={styles.contactButtonsContainer}>
                 <TouchableOpacity 
                   style={styles.contactButton}
@@ -141,6 +147,32 @@ export default function RideDetailScreen() {
             <ThemedText style={styles.descriptionText}>
               {ride.description || 'אין תיאור זמין לרכיבה זו.'}
             </ThemedText>
+          </View>
+          
+          {/* Map */}
+          <View style={styles.section}>
+            <View style={styles.mapContainer}>
+              {ride.coordinates && (
+                <MapView
+                  style={styles.map}
+                  initialRegion={{
+                    latitude: ride.coordinates.latitude,
+                    longitude: ride.coordinates.longitude,
+                    latitudeDelta: 0.01,
+                    longitudeDelta: 0.01,
+                  }}
+                >
+                  <Marker
+                    coordinate={{
+                      latitude: ride.coordinates.latitude,
+                      longitude: ride.coordinates.longitude,
+                    }}
+                    title={ride.title}
+                    description={ride.location}
+                  />
+                </MapView>
+              )}
+            </View>
           </View>
           
           {/* Date & Time */}
@@ -283,6 +315,20 @@ const styles = StyleSheet.create({
     borderRadius: 30,
     marginLeft: 12,
   },
+  bikeTypeContainer: {
+    backgroundColor: 'rgba(0, 0, 0, 0.07)',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 12,
+    alignSelf: 'flex-start',
+    marginRight: 0,
+    marginLeft: 12,
+  },
+  bikeTypeText: {
+    fontSize: 14,
+    fontWeight: 'bold',
+    color: Colors.light.text,
+  },
   organizerInfo: {
     flex: 1,
     alignItems: 'flex-end',
@@ -400,7 +446,7 @@ const styles = StyleSheet.create({
   },
   contactOptions: {
     flexDirection: 'row',
-    justifyContent: 'flex-end',
+    justifyContent: 'space-between',
     alignItems: 'center',
     marginTop: 12,
   },
@@ -421,6 +467,23 @@ const styles = StyleSheet.create({
     height: 44,
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  mapContainer: {
+    marginTop: 8,
+    height: 250,
+    borderRadius: 8,
+    overflow: 'hidden',
+    width: '100%',
+  },
+  map: {
+    width: '100%',
+    height: '100%',
+  },
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    marginBottom: 8,
+    textAlign: 'right',
   },
 }); 
 

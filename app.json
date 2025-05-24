@@ -13,7 +13,9 @@
       "infoPlist": {
         "NSAppTransportSecurity": {
           "NSAllowsArbitraryLoads": true
-        }
+        },
+        "NSLocationWhenInUseUsageDescription": "CycleConnect uses your location to show nearby cycling routes and meeting points.",
+        "NSLocationAlwaysAndWhenInUseUsageDescription": "CycleConnect uses your location to show nearby cycling routes and meeting points."
       },
       "bundleIdentifier": "com.davidzal1992.CycleConnect"
     },
@@ -23,6 +25,10 @@
         "backgroundColor": "#ffffff"
       },
       "edgeToEdgeEnabled": true,
+      "permissions": [
+        "ACCESS_FINE_LOCATION",
+        "ACCESS_COARSE_LOCATION"
+      ],
       "package": "com.davidzal1992.CycleConnect"
     },
     "web": {
