@@ -19,14 +19,29 @@ export default {
     ],
     ios: {
       supportsTablet: true,
-      bundleIdentifier: "com.cycleconnect.app"
+      bundleIdentifier: "com.cycleconnect.app",
+      associatedDomains: [
+        "applinks:dev-lwik063shdh4q48o.us.auth0.com"
+      ]
     },
     android: {
       adaptiveIcon: {
         foregroundImage: "./assets/images/adaptive-icon.png",
         backgroundColor: "#ffffff"
       },
-      package: "com.cycleconnect.app"
+      package: "com.cycleconnect.app",
+      intentFilters: [
+        {
+          action: "VIEW",
+          autoVerify: true,
+          data: [
+            {
+              scheme: "cycleconnect"
+            }
+          ],
+          category: ["BROWSABLE", "DEFAULT"]
+        }
+      ]
     },
     web: {
       bundler: "metro",
@@ -34,13 +49,20 @@ export default {
       favicon: "./assets/images/favicon.png"
     },
     plugins: [
-      "expo-router"
+      "expo-router",
+      [
+        "expo-web-browser",
+        {
+          "maybeCompleteAuthSession": true
+        }
+      ]
     ],
     experiments: {
       typedRoutes: true
     },
+    scheme: "cycleconnect",
+    schemes: ["cycleconnect", "exp"],
     extra: {
-      // Safe to include in client code - not sensitive
       proxyUrl: process.env.NGROK_URL ? `${process.env.NGROK_URL}/places-proxy/autocomplete` : 'http://localhost:3000/places-proxy/autocomplete',
       eas: {
         projectId: "your-project-id"

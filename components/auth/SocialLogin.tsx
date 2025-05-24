@@ -20,6 +20,8 @@ const redirectUri = __DEV__
 
 // Log the redirectUri for debugging
 console.log('Auth0 Redirect URI:', redirectUri);
+// Print a message about what to do with this URI
+console.log('IMPORTANT: Add this exact URL to your Auth0 allowed callback URLs in the Auth0 dashboard');
 
 export function SocialLogin() {
   const textColor = Colors.light.text;
@@ -28,6 +30,7 @@ export function SocialLogin() {
   const appleIconColor = Colors.light.text;
   const [isLoggingIn, setIsLoggingIn] = useState(false);
   const [accessToken, setAccessToken] = useState<string | null>(null);
+  const [authError, setAuthError] = useState<string | null>(null);
 
   // Extract the token from the URL
   const extractTokenFromUrl = (url: string): string | null => {
@@ -65,6 +68,7 @@ export function SocialLogin() {
             Alert.alert("התחברת בהצלחה", "ברוך הבא ל-CycleConnect!");
             navigateToMainScreen(token);
           } else {
+            setAuthError("Could not extract access token");
             Alert.alert("Login Failed", "Could not extract access token");
           }
         } else if (event.url.includes('error=')) {
@@ -75,8 +79,25 @@ export function SocialLogin() {
             : "Unknown error occurred";
           
           console.log("Auth error:", errorMessage);
-          Alert.alert("Login Failed", errorMessage);
+          setAuthError(errorMessage);
+          
+          if (errorMessage.includes("callback") || errorMessage.includes("redirect")) {
+            Alert.alert(
+              "Auth0 Configuration Error", 
+              "There's an issue with the callback URL. Tap 'Fix Configuration' for help.",
+              [
+                { text: "Cancel", style: "cancel" },
+                { 
+                  text: "Fix Configuration", 
+                  onPress: () => router.push('/auth0-help')
+                }
+              ]
+            );
+          } else {
+            Alert.alert("Login Failed", errorMessage);
+          }
         } else {
+          setAuthError("Could not get access token from Auth0");
           Alert.alert("Login Failed", "Could not get access token from Auth0");
         }
       }
@@ -104,45 +125,101 @@ export function SocialLogin() {
     }
     
     setIsLoggingIn(true);
+    setAuthError(null);
     
     try {
+      // Get the current URL for better redirect handling
+      const currentURL = await Linking.getInitialURL();
+      console.log('Current URL before auth:', currentURL);
+      
+      // Make sure redirect URI is properly URL encoded
+      const encodedRedirectUri = encodeURIComponent(redirectUri);
+      console.log('Encoded redirect URI:', encodedRedirectUri);
+      
       const authUrl = `https://${AUTH0_DOMAIN}/authorize?` +
         `client_id=${AUTH0_CLIENT_ID}` +
-        `&redirect_uri=${encodeURIComponent(redirectUri)}` +
+        `&redirect_uri=${encodedRedirectUri}` +
         `&response_type=token` +
         `&scope=openid%20profile%20email` +
-        `&connection=google-oauth2`;
+        `&connection=google-oauth2` +
+        `&prompt=login`;  // Force prompt to avoid cached sessions
       
       console.log("Opening Auth URL:", authUrl);
       
-      // Use openAuthSessionAsync which handles redirects better
-      const result = await WebBrowser.openAuthSessionAsync(authUrl, redirectUri);
-      console.log('Browser result:', result);
-      
-      // Check if we have a successful result with URL (may contain token)
-      if (result.type === 'success' && result.url) {
-        const token = extractTokenFromUrl(result.url);
-        if (token) {
-          navigateToMainScreen(token);
-          return;
+      // Use a more robust approach
+      try {
+        // Attempt to use the WebBrowser module
+        const result = await WebBrowser.openAuthSessionAsync(
+          authUrl,
+          redirectUri,
+          {
+            showInRecents: true,
+            preferEphemeralSession: true, // Use ephemeral session for better iOS compatibility
+          }
+        );
+        
+        console.log('Browser result:', result);
+        
+        if (result.type === 'success' && result.url) {
+          const token = extractTokenFromUrl(result.url);
+          if (token) {
+            navigateToMainScreen(token);
+            return;
+          }
         }
-      }
-      
-      // Handle cancellation
-      if (result.type === 'cancel') {
-        setIsLoggingIn(false);
-        Alert.alert('Login Cancelled', 'The login process was cancelled.');
+        
+        if (result.type === 'cancel') {
+          console.log('Auth canceled by user or system');
+          setIsLoggingIn(false);
+          
+          // Look for specific error patterns
+          if (result.error && typeof result.error === 'string') {
+            console.log('Auth error details:', result.error);
+            
+            if (result.error.includes('Authentication') || result.error.includes('WebAuthenticationSession')) {
+              Alert.alert(
+                "Authentication Error",
+                "There may be a configuration issue with the app's authentication. Tap 'Get Help' to troubleshoot.",
+                [
+                  { text: "Cancel", style: "cancel" },
+                  { text: "Get Help", onPress: () => router.push('/auth0-help') }
+                ]
+              );
+              return;
+            }
+          }
+        }
+      } catch (webBrowserError) {
+        console.log('WebBrowser error:', webBrowserError);
+        
+        // Fallback to opening URL directly (less reliable)
+        try {
+          const canOpen = await Linking.canOpenURL(authUrl);
+          if (canOpen) {
+            await Linking.openURL(authUrl);
+          } else {
+            throw new Error('Cannot open authentication URL');
+          }
+        } catch (linkingError) {
+          console.log('Linking error:', linkingError);
+          throw linkingError;
+        }
       }
     } catch (e) {
       setIsLoggingIn(false);
       console.log('Login error:', e);
-      Alert.alert('Login Error', 'There was a problem with the login process.');
+      setAuthError(e instanceof Error ? e.message : 'Unknown error');
+      Alert.alert('Login Error', 'There was a problem with the login process. Please try again.');
     }
   };
 
   const handleAppleLogin = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     alert('Apple login is not implemented in this demo.');
+  };
+
+  const navigateToHelp = () => {
+    router.push('/auth0-help');
   };
 
   return (
@@ -173,6 +250,13 @@ export function SocialLogin() {
           <Text style={[styles.socialButtonText, { color: textColor }]}>אפל</Text>
         </TouchableOpacity>
       </View>
+      
+      {authError && (
+        <TouchableOpacity style={styles.helpButton} onPress={navigateToHelp}>
+          <Ionicons name="help-circle-outline" size={16} color="white" style={styles.helpIcon} />
+          <Text style={styles.helpButtonText}>בעיות התחברות? לחץ כאן לעזרה</Text>
+        </TouchableOpacity>
+      )}
     </>
   );
 }
@@ -212,5 +296,23 @@ const styles = StyleSheet.create({
     marginLeft: 10, 
     fontSize: 14,
     fontWeight: '600',
+  },
+  helpButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: Colors.light.primary + '99',
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    borderRadius: 4,
+    marginTop: 8,
+  },
+  helpButtonText: {
+    color: 'white',
+    fontSize: 14,
+    fontWeight: '500',
+  },
+  helpIcon: {
+    marginRight: 8,
   },
 }); 
