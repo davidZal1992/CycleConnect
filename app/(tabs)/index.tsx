@@ -6,14 +6,14 @@ import Slider from '@react-native-community/slider';
 import { useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import {
-    ActivityIndicator,
-    Image,
-    Modal,
-    ScrollView,
-    StyleSheet,
-    TextInput,
-    TouchableOpacity,
-    View
+  ActivityIndicator,
+  Image,
+  Modal,
+  ScrollView,
+  StyleSheet,
+  TextInput,
+  TouchableOpacity,
+  View
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -555,10 +555,18 @@ export default function HomeScreen() {
             <Ionicons name="search" size={18} color={Colors.light.text + "99"} style={styles.searchIcon} />
             <TextInput
               style={styles.searchInput}
-              placeholder="...חפש רכיבות לפי כותרת או מיקום"
-              placeholderTextColor={Colors.light.text + "99"}
+              placeholder="חפש שותפים על פי מיקום או כותרת"
+              placeholderTextColor={Colors.light.text + '60'}
               value={searchQuery}
-              onChangeText={setSearchQuery}
+              onChangeText={(text) => {
+                setSearchQuery(text);
+                console.log('Search query updated:', text);
+              }}
+              onSubmitEditing={() => {
+                console.log('Search submitted:', searchQuery);
+                setFilteredRides(getFilteredRides());
+              }}
+              returnKeyType="search"
               textAlign="right"
             />
           </View>
@@ -772,7 +780,7 @@ export default function HomeScreen() {
                     onPress={() => toggleFilter('speed', 'slow')} 
                   />
                   <FilterTag 
-                    label="קצב בינוני" 
+                    label="קצב זורם" 
                     isSelected={selectedSpeeds.includes('medium')} 
                     onPress={() => toggleFilter('speed', 'medium')} 
                   />

@@ -7,6 +7,7 @@ import React, { useEffect, useState } from 'react';
 import {
     ActivityIndicator,
     Image,
+    Linking,
     ScrollView,
     StyleSheet,
     TouchableOpacity,
@@ -94,28 +95,52 @@ export default function RideDetailScreen() {
             
             {/* Contact options */}
             <View style={styles.contactOptions}>
-              <TouchableOpacity 
-                style={styles.contactButton}
-                onPress={() => {
-                  // Logic to open WhatsApp would go here
-                  console.log('Open WhatsApp with:', ride.organizer.phone || 'No phone number available');
-                }}
-              >
-                <Ionicons name="logo-whatsapp" size={22} color="#25D366" />
-                <ThemedText style={styles.contactButtonText}>WhatsApp</ThemedText>
-              </TouchableOpacity>
-              
-              <TouchableOpacity 
-                style={styles.contactButton}
-                onPress={() => {
-                  // Logic to make a call would go here
-                  console.log('Call organizer:', ride.organizer.phone || 'No phone number available');
-                }}
-              >
-                <Ionicons name="call" size={20} color="#007AFF" />
-                <ThemedText style={styles.contactButtonText}>התקשר</ThemedText>
-              </TouchableOpacity>
+              <View style={styles.spacer} />
+              <View style={styles.contactButtonsContainer}>
+                <TouchableOpacity 
+                  style={styles.contactButton}
+                  onPress={() => {
+                    // Logic to open WhatsApp
+                    const phoneNumber = ride.organizer.phone || '';
+                    if (phoneNumber) {
+                      // Remove any hyphens or spaces for WhatsApp format
+                      const formattedNumber = phoneNumber.replace(/-/g, '').replace(/\s/g, '');
+                      // Add country code if not present (using Israel +972 code)
+                      const whatsappNumber = formattedNumber.startsWith('0') 
+                        ? '972' + formattedNumber.substring(1) 
+                        : formattedNumber;
+                      
+                      Linking.openURL(`whatsapp://send?phone=${whatsappNumber}`)
+                        .catch(err => console.error('Error opening WhatsApp:', err));
+                    }
+                  }}
+                >
+                  <Ionicons name="logo-whatsapp" size={28} color="#25D366" />
+                </TouchableOpacity>
+                
+                <TouchableOpacity 
+                  style={styles.contactButton}
+                  onPress={() => {
+                    // Logic to make a call
+                    const phoneNumber = ride.organizer.phone || '';
+                    if (phoneNumber) {
+                      Linking.openURL(`tel:${phoneNumber}`)
+                        .catch(err => console.error('Error opening phone:', err));
+                    }
+                  }}
+                >
+                  <Ionicons name="call" size={26} color="#007AFF" />
+                </TouchableOpacity>
+              </View>
             </View>
+          </View>
+          
+          {/* Description */}
+          <View style={styles.descriptionSection}>
+            <ThemedText style={styles.descriptionTitle}>תיאור הרכיבה</ThemedText>
+            <ThemedText style={styles.descriptionText}>
+              {ride.description || 'אין תיאור זמין לרכיבה זו.'}
+            </ThemedText>
           </View>
           
           {/* Date & Time */}
@@ -201,23 +226,6 @@ export default function RideDetailScreen() {
               </View>
             </View>
           </View>
-          
-          {/* Participants */}
-          <View style={styles.participantsSection}>
-            <View style={styles.participantsHeader}>
-              <ThemedText style={styles.participantsTitle}>משתתפים</ThemedText>
-              <View style={styles.participantsCount}>
-                <ThemedText style={styles.participantsCountText}>
-                  {ride.participantsCount}/{ride.maxParticipants || '∞'}
-                </ThemedText>
-              </View>
-            </View>
-            
-            {/* Join Button */}
-            <TouchableOpacity style={styles.joinButton}>
-              <ThemedText style={styles.joinButtonText}>הצטרף לרכיבה</ThemedText>
-            </TouchableOpacity>
-          </View>
         </ScrollView>
       </SafeAreaView>
     </>
@@ -283,10 +291,12 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: Colors.light.text + "99",
     marginBottom: 4,
+    textAlign: 'right',
   },
   organizerName: {
     fontSize: 18,
     fontWeight: 'bold',
+    textAlign: 'right',
   },
   infoSection: {
     backgroundColor: 'white',
@@ -320,10 +330,12 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: Colors.light.text + "99",
     marginBottom: 4,
+    textAlign: 'center',
   },
   infoValue: {
     fontSize: 16,
     fontWeight: 'bold',
+    textAlign: 'center',
   },
   specsContainer: {
     backgroundColor: 'white',
@@ -363,11 +375,12 @@ const styles = StyleSheet.create({
   difficultyText: {
     color: 'white',
     fontWeight: 'bold',
+    textAlign: 'center',
   },
-  participantsSection: {
+  descriptionSection: {
     backgroundColor: 'white',
     padding: 16,
-    marginBottom: 24,
+    marginBottom: 12,
     borderRadius: 8,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
@@ -375,55 +388,40 @@ const styles = StyleSheet.create({
     shadowRadius: 2,
     elevation: 2,
   },
-  participantsHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 16,
-  },
-  participantsTitle: {
+  descriptionTitle: {
     fontSize: 18,
     fontWeight: 'bold',
+    marginBottom: 8,
+    textAlign: 'right',
   },
-  participantsCount: {
-    backgroundColor: Colors.light.primary + '15',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 16,
-  },
-  participantsCountText: {
-    fontWeight: 'bold',
-    color: Colors.light.primary,
-  },
-  joinButton: {
-    backgroundColor: Colors.light.primary,
-    paddingVertical: 12,
-    borderRadius: 8,
-    alignItems: 'center',
-  },
-  joinButtonText: {
-    color: 'white',
-    fontWeight: 'bold',
+  descriptionText: {
     fontSize: 16,
+    textAlign: 'right',
   },
   contactOptions: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
+    justifyContent: 'flex-end',
     alignItems: 'center',
     marginTop: 12,
   },
-  contactButton: {
+  spacer: {
+    flex: 1,
+  },
+  contactButtonsContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: 12,
-    borderWidth: 1,
-    borderColor: Colors.light.primary,
-    borderRadius: 8,
+    justifyContent: 'flex-end',
+    gap: 16,
   },
-  contactButtonText: {
-    marginLeft: 8,
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: Colors.light.primary,
+  contactButton: {
+    padding: 8,
+    borderRadius: 50,
+    backgroundColor: 'rgba(0, 0, 0, 0.05)',
+    width: 44,
+    height: 44,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
 }); 
+
+

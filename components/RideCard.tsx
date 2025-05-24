@@ -22,6 +22,7 @@ export interface RideCardProps {
   date: string;
   time: string;
   distance: number;
+  description?: string;
   organizer: {
     id: string;
     name: string;
@@ -44,6 +45,7 @@ export const RideCard = ({
   date, 
   time,
   distance,
+  description,
   organizer,
   participantsCount,
   maxParticipants,
@@ -65,12 +67,12 @@ export const RideCard = ({
   };
   
   // Map speed level to human-readable Hebrew text
-  const getSpeedLevelText = (level: SpeedLevel): string => {
-    switch(level) {
+  const getSpeedText = (speed: SpeedLevel): string => {
+    switch(speed) {
       case 'slow': return 'קצב איטי';
-      case 'medium': return 'קצב בינוני';
+      case 'medium': return 'קצב זורם';
       case 'fast': return 'קצב מהיר';
-      default: return 'קצב בינוני';
+      default: return 'קצב זורם';
     }
   };
   
@@ -202,7 +204,7 @@ export const RideCard = ({
             {/* Speed level badge */}
             <View style={[styles.speedBadge, { backgroundColor: getSpeedColor(speedLevel) + '20', borderColor: getSpeedColor(speedLevel) }]}>
               <ThemedText style={[styles.speedText, { color: getSpeedColor(speedLevel) }]}>
-                {getSpeedLevelText(speedLevel)}
+                {getSpeedText(speedLevel)}
               </ThemedText>
             </View>
             
