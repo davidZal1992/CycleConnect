@@ -3,7 +3,7 @@ import { Tabs } from 'expo-router';
 import { Platform } from 'react-native';
 
 import { Colors } from '@/constants/Colors';
-import { useColorScheme } from '@/hooks/useColorScheme';
+import { useColorScheme } from '@/hooks/use-color-scheme';
 
 /**
  * You can explore the built-in icon families and icons on the web at https://icons.expo.fyi/

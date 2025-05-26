@@ -1,6 +1,7 @@
 import { ThemedText } from '@/components/ThemedText';
 import { Colors } from '@/constants/Colors';
-import { mockRides } from '@/data/mockRides';
+import { mockRides } from '@/data/mock-rides';
+import { Ride } from '@/types/ride';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { useEffect, useState } from 'react';
@@ -13,39 +14,15 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-// Interface for the ride item
-interface RideItem {
-  id: string;
-  title: string;
-  date: string;
-  time: string;
-  location: string;
-  distance: number;
+// Extended interface for rides with expiration status
+interface RideWithExpiration extends Ride {
   isExpired?: boolean;
-  organizer: {
-    id: string;
-    name: string;
-    avatar: string;
-    phone?: string;
-  };
-  participantsCount: number;
-  maxParticipants?: number;
-  rideType: 'road' | 'offroad' | 'trails' | 'urban' | 'gravel';
-  difficultyLevel: 'easy' | 'medium' | 'hard';
-  technicalLevel: 'none' | 'easy' | 'medium' | 'hard';
-  speedLevel: 'slow' | 'medium' | 'fast';
-  bikeType?: 'electric' | 'analog';
-  description?: string;
-  coordinates?: {
-    latitude: number;
-    longitude: number;
-  };
 }
 
 type FilterType = 'all' | 'future';
 
 export default function RidesScreen() {
-  const [myRides, setMyRides] = useState<RideItem[]>([]);
+  const [myRides, setMyRides] = useState<RideWithExpiration[]>([]);
   const [activeFilter, setActiveFilter] = useState<FilterType>('all');
   
   // Simulate current user ID - in a real app, this would come from authentication
@@ -155,7 +132,7 @@ export default function RidesScreen() {
     ? myRides 
     : myRides.filter(ride => !ride.isExpired);
   
-  const renderRideItem = ({ item }: { item: RideItem }) => (
+  const renderRideItem = ({ item }: { item: RideWithExpiration }) => (
     <View style={[
       styles.rideItem, 
       item.isExpired && styles.expiredRideItem

@@ -10,7 +10,7 @@ export default {
     scheme: "cycleconnect",
     userInterfaceStyle: "light",
     splash: {
-      image: "./assets/images/splash.png",
+      image: "./assets/images/splash-icon.png",
       resizeMode: "contain",
       backgroundColor: "#ffffff"
     },
@@ -63,7 +63,7 @@ export default {
     scheme: "cycleconnect",
     schemes: ["cycleconnect", "exp"],
     extra: {
-      proxyUrl: process.env.NGROK_URL ? `${process.env.NGROK_URL}/places-proxy/autocomplete` : 'http://localhost:3000/places-proxy/autocomplete',
+      proxyUrl: process.env.NGROK_URL ? `${process.env.NGROK_URL}/places-proxy/autocomplete` : 'http://192.168.31.129:3000/places-proxy/autocomplete',
       eas: {
         projectId: "your-project-id"
       }

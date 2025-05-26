@@ -1,7 +1,7 @@
 import { LocationSearchRef } from '@/components/LocationSearch';
 import { ThemedText } from '@/components/ThemedText';
 import { Colors } from '@/constants/Colors';
-import { mockRides } from '@/data/mockRides';
+import { mockRides } from '@/data/mock-rides';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import Slider from '@react-native-community/slider';
 import axios from 'axios';
@@ -31,12 +31,6 @@ const PROXY_URL = Constants.expoConfig?.extra?.proxyUrl || 'http://localhost:300
 // Define allowed filter categories for type safety
 type FilterCategory = 'type' | 'difficulty' | 'technical' | 'speed' | 'bikeType';
 
-// Define interface for fallback locations
-interface FallbackLocation {
-  description: string;
-  placeId: string;
-}
-
 // Define interface for search result items
 interface SearchResultItem {
   description: string;
@@ -44,17 +38,6 @@ interface SearchResultItem {
   mainText: string;
   secondaryText: string;
 }
-
-// Fallback locations for when API fails
-const FALLBACK_LOCATIONS: FallbackLocation[] = [
-  { description: 'תל אביב, ישראל', placeId: 'tel-aviv' },
-  { description: 'ירושלים, ישראל', placeId: 'jerusalem' },
-  { description: 'חיפה, ישראל', placeId: 'haifa' },
-  { description: 'באר שבע, ישראל', placeId: 'beer-sheva' },
-  { description: 'אילת, ישראל', placeId: 'eilat' },
-  { description: 'נתניה, ישראל', placeId: 'netanya' },
-  { description: 'פארק הירקון, תל אביב', placeId: 'yarkon-park' },
-];
 
 const styles = StyleSheet.create({
   container: {
@@ -739,31 +722,14 @@ export default function PostRideScreen() {
         setShowResults(true);
         setLocationStatus('none');
       } else {
-        // Fallback to mocked locations if API fails
-        const results = FALLBACK_LOCATIONS.map(item => ({
-          placeId: item.placeId,
-          description: item.description,
-          mainText: item.description.split(',')[0],
-          secondaryText: item.description.split(',').slice(1).join(',')
-        }));
-        
-        setSearchResults(results);
-        setShowResults(true);
+        setSearchResults([]);
+        setShowResults(false);
         setLocationStatus('error');
       }
     } catch (error) {
       console.error('Error searching locations:', error);
-      
-      // Fallback to mocked locations if API fails
-      const results = FALLBACK_LOCATIONS.map(item => ({
-        placeId: item.placeId,
-        description: item.description,
-        mainText: item.description.split(',')[0],
-        secondaryText: item.description.split(',').slice(1).join(',')
-      }));
-      
-      setSearchResults(results);
-      setShowResults(true);
+      setSearchResults([]);
+      setShowResults(false);
       setLocationStatus('error');
     }
   };

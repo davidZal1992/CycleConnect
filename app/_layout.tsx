@@ -1,4 +1,3 @@
-import { useColorScheme } from '@/hooks/useColorScheme';
 import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
 import { useFonts } from 'expo-font';
 import { Stack } from 'expo-router';
@@ -6,6 +5,8 @@ import { StatusBar } from 'expo-status-bar';
 import React, { createContext, useEffect, useState } from 'react';
 import { AppState, AppStateStatus } from 'react-native';
 import 'react-native-reanimated';
+
+import { useColorScheme } from '@/hooks/use-color-scheme';
 
 // Create context to track app state
 export const AppStateContext = createContext<{

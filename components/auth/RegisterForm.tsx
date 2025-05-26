@@ -43,7 +43,7 @@ export function RegisterForm({
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     // In a real app, we would register with a backend
     alert("ההרשמה הצליחה!\nברוכים הבאים ל-CycleConnect!");
-    router.replace("/(tabs)");
+    router.push("/profile-creation");
   };
 
   return (

@@ -1,4 +1,4 @@
-import { AUTH0_CLIENT_ID, AUTH0_DOMAIN } from "@/constants/Auth0Config";
+import { AUTH0_CLIENT_ID, AUTH0_DOMAIN } from "@/constants/auth0-config";
 import { Colors } from "@/constants/Colors";
 import * as Clipboard from 'expo-clipboard';
 import * as Linking from 'expo-linking';

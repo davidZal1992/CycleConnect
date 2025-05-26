@@ -1,5 +1,6 @@
-import { AUTH0_CLIENT_ID, AUTH0_DOMAIN } from "@/constants/Auth0Config";
+import { AUTH0_CLIENT_ID, AUTH0_DOMAIN } from "@/constants/auth0-config";
 import { Colors } from "@/constants/Colors";
+import { hasCompletedProfile } from "@/utils/auth-helpers";
 import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from 'expo-haptics';
 import * as Linking from 'expo-linking';
@@ -33,21 +34,59 @@ export function SocialLogin() {
   const [authError, setAuthError] = useState<string | null>(null);
 
   // Extract the token from the URL
-  const extractTokenFromUrl = (url: string): string | null => {
-    const match = url.match(/#access_token=([^&]+)/);
-    return match ? match[1] : null;
+  const extractTokenFromUrl = (url: string): { idToken?: string; accessToken?: string } => {
+    console.log('Extracting tokens from URL:', url);
+    
+    const idTokenMatch = url.match(/#id_token=([^&]+)/);
+    const accessTokenMatch = url.match(/#access_token=([^&]+)/) || url.match(/&access_token=([^&]+)/);
+    
+    const result = {
+      idToken: idTokenMatch ? decodeURIComponent(idTokenMatch[1]) : undefined,
+      accessToken: accessTokenMatch ? decodeURIComponent(accessTokenMatch[1]) : undefined
+    };
+    
+    console.log('Extracted tokens:', {
+      idToken: result.idToken ? result.idToken.substring(0, 50) + '...' : 'none',
+      accessToken: result.accessToken ? result.accessToken.substring(0, 50) + '...' : 'none'
+    });
+    
+    return result;
   };
 
   // Handle navigation after successful login
-  const navigateToMainScreen = (token: string) => {
+  const navigateToMainScreen = async (token: string) => {
     console.log("Navigating to main screen with token", token.substring(0, 10) + "...");
     // Store token if needed
     setAccessToken(token);
     
-    // Navigate directly to the main tab interface
-    setTimeout(() => {
-      router.replace('/');
-    }, 100);
+    try {
+      // Check if user has completed their profile
+      const profileCompleted = await hasCompletedProfile(token);
+      
+      if (profileCompleted) {
+        // User has completed profile, go to main app
+        setTimeout(() => {
+          router.replace('/(tabs)');
+        }, 100);
+      } else {
+        // New user or incomplete profile, go to profile creation
+        setTimeout(() => {
+          router.push({
+            pathname: '/profile-creation',
+            params: { email: '', token }
+          });
+        }, 100);
+      }
+    } catch (error) {
+      console.error('Error checking profile status:', error);
+      // Default to profile creation on error
+      setTimeout(() => {
+        router.push({
+          pathname: '/profile-creation',
+          params: { email: '', token }
+        });
+      }, 100);
+    }
   };
 
   // Set up a listener for when Auth0 redirects back to our app
@@ -64,9 +103,10 @@ export function SocialLogin() {
           console.log("Successfully logged in!");
           const token = extractTokenFromUrl(event.url);
           
-          if (token) {
-            Alert.alert("התחברת בהצלחה", "ברוך הבא ל-CycleConnect!");
-            navigateToMainScreen(token);
+          if (token.accessToken) {
+            navigateToMainScreen(token.accessToken);
+          } else if (token.idToken) {
+            navigateToMainScreen(token.idToken);
           } else {
             setAuthError("Could not extract access token");
             Alert.alert("Login Failed", "Could not extract access token");
@@ -139,7 +179,7 @@ export function SocialLogin() {
       const authUrl = `https://${AUTH0_DOMAIN}/authorize?` +
         `client_id=${AUTH0_CLIENT_ID}` +
         `&redirect_uri=${encodedRedirectUri}` +
-        `&response_type=token` +
+        `&response_type=id_token%20token` +
         `&scope=openid%20profile%20email` +
         `&connection=google-oauth2` +
         `&prompt=login`;  // Force prompt to avoid cached sessions
@@ -162,32 +202,22 @@ export function SocialLogin() {
         
         if (result.type === 'success' && result.url) {
           const token = extractTokenFromUrl(result.url);
-          if (token) {
-            navigateToMainScreen(token);
+          if (token.accessToken) {
+            navigateToMainScreen(token.accessToken);
+            return;
+          } else if (token.idToken) {
+            navigateToMainScreen(token.idToken);
             return;
           }
-        }
-        
-        if (result.type === 'cancel') {
+        } else if (result.type === 'cancel') {
           console.log('Auth canceled by user or system');
           setIsLoggingIn(false);
-          
-          // Look for specific error patterns
-          if (result.error && typeof result.error === 'string') {
-            console.log('Auth error details:', result.error);
-            
-            if (result.error.includes('Authentication') || result.error.includes('WebAuthenticationSession')) {
-              Alert.alert(
-                "Authentication Error",
-                "There may be a configuration issue with the app's authentication. Tap 'Get Help' to troubleshoot.",
-                [
-                  { text: "Cancel", style: "cancel" },
-                  { text: "Get Help", onPress: () => router.push('/auth0-help') }
-                ]
-              );
-              return;
-            }
-          }
+          return;
+        } else {
+          // If we get here, the auth didn't succeed and wasn't explicitly canceled
+          setIsLoggingIn(false);
+          Alert.alert('Google Login Error', 'Authentication was not completed successfully.');
+          return; // Don't navigate anywhere on failure
         }
       } catch (webBrowserError) {
         console.log('WebBrowser error:', webBrowserError);
@@ -213,9 +243,157 @@ export function SocialLogin() {
     }
   };
 
-  const handleAppleLogin = () => {
+  const handleAppleLogin = async () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    alert('Apple login is not implemented in this demo.');
+    
+    if (isLoggingIn) {
+      return; // Prevent multiple login attempts
+    }
+    
+    setIsLoggingIn(true);
+    setAuthError(null);
+    
+    try {
+      // Generate a random nonce for Apple authentication
+      const generateNonce = () => {
+        const charset = '0123456789ABCDEFGHIJKLMNOPQRSTUVXYZabcdefghijklmnopqrstuvwxyz-._';
+        let result = '';
+        for (let i = 0; i < 32; i++) {
+          result += charset.charAt(Math.floor(Math.random() * charset.length));
+        }
+        return result;
+      };
+      
+      const nonce = generateNonce();
+      
+      // Make sure redirect URI is properly URL encoded
+      const encodedRedirectUri = encodeURIComponent(redirectUri);
+      console.log('Apple Login - Encoded redirect URI:', encodedRedirectUri);
+      console.log('Apple Login - Generated nonce:', nonce);
+      
+      const authUrl = `https://${AUTH0_DOMAIN}/authorize?` +
+        `client_id=${AUTH0_CLIENT_ID}` +
+        `&redirect_uri=${encodedRedirectUri}` +
+        `&response_type=id_token%20token` +
+        `&scope=openid%20profile%20email` +
+        `&connection=apple` +
+        `&nonce=${nonce}` +
+        `&prompt=login`;  // Force prompt to avoid cached sessions
+      
+      console.log("Opening Apple Auth URL:", authUrl);
+      
+      try {
+        // Use WebBrowser for Apple login with specific iOS settings
+        const result = await WebBrowser.openAuthSessionAsync(
+          authUrl,
+          redirectUri,
+          {
+            showInRecents: false, // Changed to false for Apple
+            preferEphemeralSession: false, // Changed to false for Apple - persistent session works better
+            createTask: false, // Add this for iOS
+          }
+        );
+        
+        console.log('Apple login browser result:', result);
+        
+        if (result.type === 'success' && result.url) {
+          const token = extractTokenFromUrl(result.url);
+          if (token.accessToken) {
+            navigateToMainScreen(token.accessToken);
+          } else if (token.idToken) {
+            navigateToMainScreen(token.idToken);
+          } else {
+            setIsLoggingIn(false);
+            setAuthError("Could not extract access token");
+            Alert.alert("Login Failed", "Could not extract access token");
+          }
+        } else if (result.type === 'cancel') {
+          console.log('Apple auth canceled by user or system');
+          setIsLoggingIn(false);
+          
+          // Show helpful message for cancellation
+          Alert.alert(
+            'Apple Login Issue', 
+            'Apple authentication was canceled. This might be due to:\n\n' +
+            '• Apple connection not configured in Auth0\n' +
+            '• Invalid redirect URI\n' +
+            '• iOS simulator limitations\n\n' +
+            'Try using Google login or test on a physical device.',
+            [
+              { text: 'OK', style: 'default' },
+              { text: 'Try Google', onPress: handleGoogleLogin }
+            ]
+          );
+          return;
+        } else {
+          // If we get here, the auth didn't succeed and wasn't explicitly canceled
+          setIsLoggingIn(false);
+          console.log('Apple auth failed with result:', result);
+          Alert.alert(
+            'Apple Login Error', 
+            'Authentication was not completed successfully. This might be due to Apple connection configuration issues in Auth0.',
+            [
+              { text: 'OK', style: 'default' },
+              { text: 'Try Google', onPress: handleGoogleLogin }
+            ]
+          );
+          return; // Don't navigate anywhere on failure
+        }
+      } catch (webBrowserError) {
+        console.log('Apple WebBrowser error:', webBrowserError);
+        setIsLoggingIn(false);
+        
+        // More specific error handling for Apple
+        const errorMessage = webBrowserError instanceof Error ? webBrowserError.message : 'Unknown error';
+        
+        if (errorMessage.includes('AuthenticationServices') || errorMessage.includes('WebAuthenticationSession')) {
+          Alert.alert(
+            'Apple Authentication Error',
+            'Apple Sign-In is not available or properly configured. This could be due to:\n\n' +
+            '• Running on iOS Simulator (Apple Sign-In works better on real devices)\n' +
+            '• Apple connection not set up in Auth0\n' +
+            '• Network connectivity issues\n\n' +
+            'Please try Google login or test on a physical device.',
+            [
+              { text: 'OK', style: 'default' },
+              { text: 'Try Google', onPress: handleGoogleLogin }
+            ]
+          );
+        } else {
+          // Fallback to opening URL directly
+          try {
+            const canOpen = await Linking.canOpenURL(authUrl);
+            if (canOpen) {
+              await Linking.openURL(authUrl);
+            } else {
+              throw new Error('Cannot open Apple authentication URL');
+            }
+          } catch (linkingError) {
+            console.log('Apple Linking error:', linkingError);
+            Alert.alert(
+              'Apple Login Error',
+              'Unable to open Apple authentication. Please try Google login instead.',
+              [
+                { text: 'OK', style: 'default' },
+                { text: 'Try Google', onPress: handleGoogleLogin }
+              ]
+            );
+          }
+        }
+      }
+    } catch (e) {
+      setIsLoggingIn(false);
+      console.log('Apple login error:', e);
+      setAuthError(e instanceof Error ? e.message : 'Unknown error');
+      Alert.alert(
+        'Apple Login Error', 
+        'There was a problem with the Apple login process. Please try Google login instead.',
+        [
+          { text: 'OK', style: 'default' },
+          { text: 'Try Google', onPress: handleGoogleLogin }
+        ]
+      );
+    }
   };
 
   const navigateToHelp = () => {
@@ -245,6 +423,7 @@ export function SocialLogin() {
           style={[styles.socialButton, { borderColor }]}
           onPress={handleAppleLogin}
           activeOpacity={0.8}
+          disabled={isLoggingIn}
         >
           <Ionicons name="logo-apple" size={20} color={appleIconColor} />
           <Text style={[styles.socialButtonText, { color: textColor }]}>אפל</Text>

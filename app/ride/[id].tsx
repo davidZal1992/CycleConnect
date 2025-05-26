@@ -1,6 +1,6 @@
 import { ThemedText } from '@/components/ThemedText';
 import { Colors } from '@/constants/Colors';
-import { mockRides } from '@/data/mockRides';
+import { mockRides } from '@/data/mock-rides';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';

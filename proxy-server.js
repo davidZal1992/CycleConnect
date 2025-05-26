@@ -70,7 +70,29 @@ app.get('/places-proxy/autocomplete', async (req, res) => {
     console.log('Response status:', response.status);
     console.log('Response data (sample):', JSON.stringify(response.data).substring(0, 300) + '...');
     
-    res.json(response.data);
+    // Transform the new API v1 response format to the old format expected by the app
+    if (response.data.suggestions) {
+      const transformedResponse = {
+        predictions: response.data.suggestions.map(suggestion => {
+          const prediction = suggestion.placePrediction;
+          return {
+            place_id: prediction.placeId,
+            description: prediction.text?.text || '',
+            structured_formatting: {
+              main_text: prediction.structuredFormat?.mainText?.text || prediction.text?.text || '',
+              secondary_text: prediction.structuredFormat?.secondaryText?.text || ''
+            }
+          };
+        }),
+        status: "OK"
+      };
+      
+      console.log('Transformed response (sample):', JSON.stringify(transformedResponse).substring(0, 300) + '...');
+      res.json(transformedResponse);
+    } else {
+      // If no suggestions, return empty predictions array
+      res.json({ predictions: [], status: "ZERO_RESULTS" });
+    }
   } catch (error) {
     console.error('Proxy Error:', error.message);
     if (error.response) {
@@ -113,7 +135,29 @@ app.post('/places-proxy/autocomplete', async (req, res) => {
     console.log('Response status:', response.status);
     console.log('Response data (sample):', JSON.stringify(response.data).substring(0, 300) + '...');
     
-    res.json(response.data);
+    // Transform the new API v1 response format to the old format expected by the app
+    if (response.data.suggestions) {
+      const transformedResponse = {
+        predictions: response.data.suggestions.map(suggestion => {
+          const prediction = suggestion.placePrediction;
+          return {
+            place_id: prediction.placeId,
+            description: prediction.text?.text || '',
+            structured_formatting: {
+              main_text: prediction.structuredFormat?.mainText?.text || prediction.text?.text || '',
+              secondary_text: prediction.structuredFormat?.secondaryText?.text || ''
+            }
+          };
+        }),
+        status: "OK"
+      };
+      
+      console.log('Transformed response (sample):', JSON.stringify(transformedResponse).substring(0, 300) + '...');
+      res.json(transformedResponse);
+    } else {
+      // If no suggestions, return empty predictions array
+      res.json({ predictions: [], status: "ZERO_RESULTS" });
+    }
   } catch (error) {
     console.error('Proxy Error:', error.message);
     if (error.response) {
