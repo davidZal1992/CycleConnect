@@ -60,7 +60,6 @@ export default {
     experiments: {
       typedRoutes: true
     },
-    scheme: "cycleconnect",
     schemes: ["cycleconnect", "exp"],
     extra: {
       proxyUrl: process.env.NGROK_URL ? `${process.env.NGROK_URL}/places-proxy/autocomplete` : 'http://172.28.129.120:3000/places-proxy/autocomplete',
