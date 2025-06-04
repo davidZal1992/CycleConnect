@@ -10,9 +10,10 @@ interface LoginFormProps {
   setEmail: (email: string) => void;
   password: string;
   setPassword: (password: string) => void;
+  onForgotPassword?: () => void;
 }
 
-export function LoginForm({ email, setEmail, password, setPassword }: LoginFormProps) {
+export function LoginForm({ email, setEmail, password, setPassword, onForgotPassword }: LoginFormProps) {
   const [showPassword, setShowPassword] = useState(false);
   const [emailFocused, setEmailFocused] = useState(false);
   const [passwordFocused, setPasswordFocused] = useState(false);
@@ -94,7 +95,13 @@ export function LoginForm({ email, setEmail, password, setPassword }: LoginFormP
 
       <View style={styles.forgotPasswordContainer}>
         <TouchableOpacity 
-          onPress={() => alert("שחזור סיסמה יהיה זמין בקרוב")}
+          onPress={() => {
+            if (onForgotPassword) {
+              onForgotPassword();
+            } else {
+              router.push('/password-recovery');
+            }
+          }}
           activeOpacity={0.7}
         >
           <Text style={[styles.forgotPasswordText, { color: primaryColor }]}>שכחת סיסמה?</Text>

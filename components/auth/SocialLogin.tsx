@@ -16,13 +16,25 @@ maybeCompleteAuthSession();
 // Use different redirect URIs for development and production
 // In Expo Go, we need to use the expo-development scheme
 const redirectUri = __DEV__ 
-  ? Linking.createURL('auth') // This creates a URL like exp://192.168.x.x:port/--/auth in Expo Go
+  ? Linking.createURL('auth') // This creates a URL like exp://172.20.10.2:8081/--/auth in Expo Go
   : 'cycleconnect://auth';
 
+// Also create a localhost fallback for development
+const fallbackRedirectUri = __DEV__ ? 'exp://localhost:8081/--/auth' : redirectUri;
+
 // Log the redirectUri for debugging
-console.log('Auth0 Redirect URI:', redirectUri);
+console.log('🔗 Auth0 Redirect URI:', redirectUri);
+console.log('🔗 Fallback Redirect URI:', fallbackRedirectUri);
 // Print a message about what to do with this URI
-console.log('IMPORTANT: Add this exact URL to your Auth0 allowed callback URLs in the Auth0 dashboard');
+console.log('⚠️  IMPORTANT: Add this exact URL to your Auth0 allowed callback URLs in the Auth0 dashboard');
+console.log('📋 Copy this URL:', redirectUri);
+console.log('');
+console.log('🚨 AUTH0 SETUP REQUIRED:');
+console.log('1. Go to https://dev-lwik063shdh4q48o.us.auth0.com');
+console.log('2. Applications → CycleConnect → Settings');
+console.log('3. Add this to "Allowed Callback URLs":', redirectUri);
+console.log('4. Save changes');
+console.log('');
 
 export function SocialLogin() {
   const textColor = Colors.light.text;
@@ -92,15 +104,12 @@ export function SocialLogin() {
   // Set up a listener for when Auth0 redirects back to our app
   useEffect(() => {
     const handleRedirect = (event: { url: string }) => {
-      console.log("Deep link detected:", event.url);
-      
       // Check for both possible redirect formats
       if (event.url.includes('/--/auth') || event.url.startsWith('cycleconnect://auth')) {
         setIsLoggingIn(false);
         
         // Handle successful login
-        if (event.url.includes('access_token=')) {
-          console.log("Successfully logged in!");
+        if (event.url.includes('access_token=') || event.url.includes('id_token=')) {
           const token = extractTokenFromUrl(event.url);
           
           if (token.accessToken) {
@@ -108,38 +117,57 @@ export function SocialLogin() {
           } else if (token.idToken) {
             navigateToMainScreen(token.idToken);
           } else {
-            setAuthError("Could not extract access token");
-            Alert.alert("Login Failed", "Could not extract access token");
+            const errorMsg = `❌ Could not extract any token from URL: ${event.url.substring(0, 100)}...`;
+            setAuthError(errorMsg);
+            Alert.alert("Login Failed", "Could not extract access token from Auth0 response\n\nTap 'OK' to try again", 
+              [
+                { text: 'OK' },
+              ]
+            );
           }
         } else if (event.url.includes('error=')) {
           // Extract and display the error
-          const errorMatch = event.url.match(/error_description=([^&]+)/);
-          const errorMessage = errorMatch 
-            ? decodeURIComponent(errorMatch[1]).replace(/\+/g, ' ') 
+          const errorMatch = event.url.match(/error=([^&]+)/);
+          const errorDescMatch = event.url.match(/error_description=([^&]+)/);
+          
+          const error = errorMatch ? decodeURIComponent(errorMatch[1]) : "unknown_error";
+          const errorDescription = errorDescMatch 
+            ? decodeURIComponent(errorDescMatch[1]).replace(/\+/g, ' ') 
             : "Unknown error occurred";
           
-          console.log("Auth error:", errorMessage);
-          setAuthError(errorMessage);
+          const errorMsg = `❌ Auth error: ${error} - ${errorDescription}`;
+          setAuthError(errorDescription);
           
-          if (errorMessage.includes("callback") || errorMessage.includes("redirect")) {
+          if (errorDescription.includes("callback") || errorDescription.includes("redirect") || error === "redirect_uri_mismatch") {
             Alert.alert(
               "Auth0 Configuration Error", 
-              "There's an issue with the callback URL. Tap 'Fix Configuration' for help.",
+              `Callback URL mismatch detected.\n\nExpected: ${redirectUri}\n\nReceived error: ${error}\n\nPlease update your Auth0 settings with the correct callback URL.`,
               [
                 { text: "Cancel", style: "cancel" },
                 { 
                   text: "Fix Configuration", 
                   onPress: () => router.push('/auth0-help')
-                }
+                },
               ]
             );
           } else {
-            Alert.alert("Login Failed", errorMessage);
+            Alert.alert("Login Failed", `Error: ${error}\n\nDescription: ${errorDescription}`, 
+              [
+                { text: 'OK' },
+              ]
+            );
           }
         } else {
-          setAuthError("Could not get access token from Auth0");
-          Alert.alert("Login Failed", "Could not get access token from Auth0");
+          const errorMsg = `❌ Unknown redirect format: ${event.url}`;
+          setAuthError(errorMsg);
+          Alert.alert("Login Failed", "Unexpected response format from Auth0", 
+            [
+              { text: 'OK' },
+            ]
+          );
         }
+      } else {
+        console.log('🔍 Ignoring non-auth deep link: ', event.url.substring(0, 50), '...');
       }
     };
 
@@ -149,7 +177,10 @@ export function SocialLogin() {
     // Check for an initial URL (in case the app was opened via a redirect)
     Linking.getInitialURL().then(url => {
       if (url) {
+        console.log('🚀 Initial URL detected: ', url);
         handleRedirect({ url });
+      } else {
+        console.log('📱 No initial URL detected');
       }
     });
 
@@ -170,11 +201,25 @@ export function SocialLogin() {
     try {
       // Get the current URL for better redirect handling
       const currentURL = await Linking.getInitialURL();
-      console.log('Current URL before auth:', currentURL);
+      console.log('📱 Current URL before auth: ', currentURL || 'none');
       
       // Make sure redirect URI is properly URL encoded
       const encodedRedirectUri = encodeURIComponent(redirectUri);
-      console.log('Encoded redirect URI:', encodedRedirectUri);
+      const encodedFallbackRedirectUri = encodeURIComponent(fallbackRedirectUri);
+      console.log('🔒 Encoded redirect URI: ', encodedRedirectUri);
+      
+      // Generate a random nonce for Google authentication (required for id_token)
+      const generateNonce = () => {
+        const charset = '0123456789ABCDEFGHIJKLMNOPQRSTUVXYZabcdefghijklmnopqrstuvwxyz-._';
+        let result = '';
+        for (let i = 0; i < 32; i++) {
+          result += charset.charAt(Math.floor(Math.random() * charset.length));
+        }
+        return result;
+      };
+      
+      const nonce = generateNonce();
+      console.log('🔐 Generated nonce: ', nonce.substring(0, 10), '...');
       
       const authUrl = `https://${AUTH0_DOMAIN}/authorize?` +
         `client_id=${AUTH0_CLIENT_ID}` +
@@ -182,12 +227,22 @@ export function SocialLogin() {
         `&response_type=id_token%20token` +
         `&scope=openid%20profile%20email` +
         `&connection=google-oauth2` +
+        `&nonce=${nonce}` +
         `&prompt=login`;  // Force prompt to avoid cached sessions
       
-      console.log("Opening Auth URL:", authUrl);
+      console.log('🌐 Auth URL: ', authUrl.substring(0, 100), '...');
+      
+      // Test if we can open the URL first
+      const canOpenAuth = await Linking.canOpenURL(authUrl);
+      console.log('🔍 Can open auth URL: ', canOpenAuth);
+      
+      if (!canOpenAuth) {
+        throw new Error('Cannot open authentication URL - URL format invalid');
+      }
       
       // Use a more robust approach
       try {
+        console.log('📱 Opening WebBrowser auth session...');
         // Attempt to use the WebBrowser module
         const result = await WebBrowser.openAuthSessionAsync(
           authUrl,
@@ -198,48 +253,113 @@ export function SocialLogin() {
           }
         );
         
-        console.log('Browser result:', result);
+        console.log('📊 Browser result type: ', result.type);
+        console.log('📊 Browser result URL: ', result.type === 'success' && 'url' in result ? result.url.substring(0, 100) + '...' : 'none');
         
-        if (result.type === 'success' && result.url) {
+        if (result.type === 'success' && 'url' in result && result.url) {
+          console.log('✅ Auth session completed successfully');
           const token = extractTokenFromUrl(result.url);
           if (token.accessToken) {
+            console.log('🎫 Successfully extracted access token');
             navigateToMainScreen(token.accessToken);
             return;
           } else if (token.idToken) {
+            console.log('🎫 Successfully extracted ID token');
             navigateToMainScreen(token.idToken);
+            return;
+          } else {
+            setIsLoggingIn(false);
+            const errorMessage = 'Could not extract access token from response';
+            console.log('❌ Token extraction failed: ', result.url.substring(0, 100), '...');
+            setAuthError(errorMessage);
+            Alert.alert('Google Login Error', errorMessage + '\n\nThis might be due to Auth0 configuration issues.', 
+              [
+                { text: 'OK' },
+              ]
+            );
             return;
           }
         } else if (result.type === 'cancel') {
-          console.log('Auth canceled by user or system');
+          console.log('⚠️ Auth canceled by user or system');
           setIsLoggingIn(false);
           return;
         } else {
           // If we get here, the auth didn't succeed and wasn't explicitly canceled
           setIsLoggingIn(false);
-          Alert.alert('Google Login Error', 'Authentication was not completed successfully.');
+          const errorMessage = 'Authentication was not completed successfully. This might be due to Auth0 configuration issues.';
+          console.log('❌ Auth failed with result: ', JSON.stringify(result));
+          setAuthError(errorMessage);
+          Alert.alert('Google Login Error', errorMessage + '\n\nTap OK to try again', 
+            [
+              { text: 'OK' },
+            ]
+          );
           return; // Don't navigate anywhere on failure
         }
       } catch (webBrowserError) {
-        console.log('WebBrowser error:', webBrowserError);
+        console.log('❌ WebBrowser error: ', webBrowserError);
+        
+        // More specific error handling
+        const errorMessage = webBrowserError instanceof Error ? webBrowserError.message : 'Unknown WebBrowser error';
+        
+        if (errorMessage.includes('callback') || errorMessage.includes('redirect_uri')) {
+          setIsLoggingIn(false);
+          setAuthError('Auth0 redirect URI configuration error');
+          Alert.alert(
+            'Configuration Error',
+            `There's an issue with the Auth0 callback URL configuration.\n\nExpected: ${redirectUri}\n\nPlease check the help section for instructions.`,
+            [
+              { text: 'Cancel', style: 'cancel' },
+              { text: 'Get Help', onPress: () => router.push('/auth0-help') },
+            ]
+          );
+          return;
+        }
         
         // Fallback to opening URL directly (less reliable)
         try {
           const canOpen = await Linking.canOpenURL(authUrl);
           if (canOpen) {
+            console.log('🔄 Falling back to direct URL opening');
             await Linking.openURL(authUrl);
+            // Note: When using direct URL opening, we rely on the deep link handler
           } else {
             throw new Error('Cannot open authentication URL');
           }
         } catch (linkingError) {
-          console.log('Linking error:', linkingError);
+          console.log('❌ Linking error: ', linkingError);
           throw linkingError;
         }
       }
     } catch (e) {
       setIsLoggingIn(false);
-      console.log('Login error:', e);
-      setAuthError(e instanceof Error ? e.message : 'Unknown error');
-      Alert.alert('Login Error', 'There was a problem with the login process. Please try again.');
+      console.log('❌ Login error: ', e);
+      const errorMessage = e instanceof Error ? e.message : 'Unknown error';
+      setAuthError(errorMessage);
+      
+      // Provide more helpful error messages
+      if (errorMessage.includes('network') || errorMessage.includes('Network')) {
+        Alert.alert('Network Error', 'Please check your internet connection and try again.', 
+          [
+            { text: 'OK' },
+          ]
+        );
+      } else if (errorMessage.includes('auth0') || errorMessage.includes('Auth0')) {
+        Alert.alert(
+          'Auth0 Configuration Error', 
+          'There seems to be an issue with the authentication service configuration.',
+          [
+            { text: 'OK', style: 'default' },
+            { text: 'Get Help', onPress: () => router.push('/auth0-help') },
+          ]
+        );
+      } else {
+        Alert.alert('Login Error', 'There was a problem with the login process.', 
+          [
+            { text: 'OK' },
+          ]
+        );
+      }
     }
   };
 
