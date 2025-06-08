@@ -1,9 +1,9 @@
 import { ThemedText } from "@/components/ThemedText";
 import { ThemedView } from "@/components/ThemedView";
 import { AppLogo } from "@/components/auth/AppLogo";
+import { SocialLogin } from "@/components/auth/FirebaseSocialLogin";
 import { LoginForm } from "@/components/auth/LoginForm";
 import { RegisterForm } from "@/components/auth/RegisterForm";
-import { SocialLogin } from "@/components/auth/SocialLogin";
 import { Colors } from "@/constants/Colors";
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';

@@ -75,3 +75,8 @@ logs
 .vscode
 *.swp
 *.swo
+
+# Expo
+.expo
+dist/
+web-build/

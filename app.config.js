@@ -49,13 +49,7 @@ export default {
       favicon: "./assets/images/favicon.png"
     },
     plugins: [
-      "expo-router",
-      [
-        "expo-web-browser",
-        {
-          "maybeCompleteAuthSession": true
-        }
-      ]
+      "expo-router"
     ],
     experiments: {
       typedRoutes: true
@@ -64,7 +58,7 @@ export default {
     extra: {
       proxyUrl: process.env.NGROK_URL ? `${process.env.NGROK_URL}/places-proxy/autocomplete` : 'http://172.28.129.120:3000/places-proxy/autocomplete',
       eas: {
-        projectId: "your-project-id"
+        projectId: "eecb061f-706b-4b01-b3a2-f17de4587980"
       }
     }
   }
