@@ -1,23 +1,29 @@
 import { useAuth } from '@/contexts/AuthContext';
-import { Redirect } from 'expo-router';
-import { useEffect, useState } from 'react';
+import { router } from 'expo-router';
+import { useEffect } from 'react';
 import { ActivityIndicator, View } from 'react-native';
 
 export default function Index() {
-  const { user } = useAuth();
-  const [isLoading, setIsLoading] = useState(true);
+  const { user, isLoading } = useAuth();
 
   useEffect(() => {
-    // Give a moment for auth state to initialize
-    const timer = setTimeout(() => {
-      setIsLoading(false);
-    }, 1000);
-
-    return () => clearTimeout(timer);
-  }, []);
+    console.log('🔥 Index.tsx - Auth state:', { user: !!user, isLoading });
+    
+    // Only navigate when not loading
+    if (!isLoading) {
+      if (user) {
+        console.log('🔥 Index.tsx - User authenticated, navigating to /(tabs)');
+        router.replace('/(tabs)');
+      } else {
+        console.log('🔥 Index.tsx - User not authenticated, navigating to /login');
+        router.replace('/login');
+      }
+    }
+  }, [user, isLoading]);
 
   // Show loading spinner while checking auth state
   if (isLoading) {
+    console.log('🔥 Index.tsx - Showing loading spinner');
     return (
       <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
         <ActivityIndicator size="large" />
@@ -25,10 +31,10 @@ export default function Index() {
     );
   }
 
-  // Redirect based on authentication state
-  if (user) {
-    return <Redirect href="/(tabs)" />;
-  } else {
-    return <Redirect href="/login" />;
-  }
+  // Return loading spinner while navigation is happening
+  return (
+    <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+      <ActivityIndicator size="large" />
+    </View>
+  );
 } 

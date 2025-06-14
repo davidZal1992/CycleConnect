@@ -4,13 +4,18 @@ import { Colors } from '@/constants/Colors';
 import { useAuth } from '@/contexts/AuthContext';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
+import { router } from 'expo-router';
+import { useState } from 'react';
 import { Alert, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 export default function ProfileScreen() {
   const { signOut } = useAuth();
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
 
   const handleLogout = () => {
+    if (isLoggingOut) return; // Prevent multiple clicks
+    
     Alert.alert(
       "התנתקות",
       "האם אתה בטוח שברצונך להתנתק?",
@@ -23,14 +28,23 @@ export default function ProfileScreen() {
           text: "התנתק", 
           style: "destructive",
           onPress: async () => {
+            setIsLoggingOut(true);
             try {
+              console.log('🔥 Profile - Starting logout process...');
+              
               // Sign out from Firebase
               await signOut();
-              console.log('🔥 User signed out successfully');
-              // Navigation will be handled by the auth guard in index.tsx
+              console.log('🔥 Profile - SignOut completed successfully');
+              
+              // Force navigation to login page
+              console.log('🔥 Profile - Forcing navigation to login');
+              router.replace('/login');
+              
             } catch (error) {
-              console.error('🔥 Error signing out:', error);
+              console.error('🔥 Profile - Error signing out:', error);
               Alert.alert('שגיאה', 'אירעה שגיאה בהתנתקות. אנא נסה שוב.');
+            } finally {
+              setIsLoggingOut(false);
             }
           }
         }

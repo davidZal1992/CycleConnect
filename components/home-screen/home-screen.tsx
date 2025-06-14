@@ -4,19 +4,38 @@ import { RideCard } from '@/components/ride-card/ride-card';
 import { SearchBar } from '@/components/search-bar/search-bar';
 import { EmptyState } from '@/components/ui/empty-state';
 import { Colors } from '@/constants/Colors';
+import { useAuth } from '@/contexts/AuthContext';
 import { mockRides } from '@/data/mock-rides';
 import { useFilterState } from '@/hooks/use-filter-state';
 import { Ride } from '@/types/ride';
 import { getFilteredRides, hasActiveFilters } from '@/utils/filter-helpers';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import React, { useMemo, useState } from 'react';
-import { FlatList, Image, StyleSheet, TouchableOpacity, View } from 'react-native';
+import { useEffect, useMemo, useState } from 'react';
+import { ActivityIndicator, FlatList, Image, StyleSheet, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+
+// API endpoint for profile
+const API_BASE_URL = 'http://localhost:8080/api/v1/profiles';
+
+interface UserProfile {
+  userId: string;
+  fullName: string;
+  phoneNumber: string;
+  email: string;
+  profileImage?: string;
+  bikeModel?: string;
+  location?: string;
+  bio?: string;
+}
 
 export function HomeScreen() {
   const router = useRouter();
+  const { user } = useAuth();
   const [isFilterModalVisible, setFilterModalVisible] = useState(false);
+  const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
+  const [isLoadingProfile, setIsLoadingProfile] = useState(true);
+  const [isLoadingRides, setIsLoadingRides] = useState(false); // For future rides API
   
   const {
     filterState,
@@ -25,6 +44,69 @@ export function HomeScreen() {
     setSearch,
     clearFilters
   } = useFilterState();
+
+  // Fetch user profile from backend
+  useEffect(() => {
+    const fetchUserProfile = async () => {
+      if (!user?.uid) {
+        setIsLoadingProfile(false);
+        return;
+      }
+
+      try {
+        console.log('🔥 Fetching user profile for userId:', user.uid);
+        const response = await fetch(`${API_BASE_URL}/${user.uid}`);
+        
+        if (response.ok) {
+          const profile = await response.json();
+          console.log('🔥 User profile fetched successfully:', profile);
+          setUserProfile(profile);
+        } else {
+          console.log('🔥 No profile found for user, using Firebase displayName');
+          // Fallback to Firebase displayName if no profile exists
+          if (user.displayName) {
+            setUserProfile({
+              userId: user.uid,
+              fullName: user.displayName,
+              phoneNumber: '',
+              email: user.email || '',
+            });
+          }
+        }
+      } catch (error) {
+        console.error('🔥 Error fetching user profile:', error);
+        // Fallback to Firebase displayName on error
+        if (user.displayName) {
+          setUserProfile({
+            userId: user.uid,
+            fullName: user.displayName,
+            phoneNumber: '',
+            email: user.email || '',
+          });
+        }
+      } finally {
+        setIsLoadingProfile(false);
+      }
+    };
+
+    fetchUserProfile();
+  }, [user]);
+
+  // Extract first name from full name
+  const getFirstName = (fullName?: string): string => {
+    if (!fullName) return 'רוכב';
+    const nameParts = fullName.trim().split(' ');
+    return nameParts[0] || 'רוכב';
+  };
+
+  // Get display name (full name or fallback)
+  const getDisplayName = (fullName?: string): string => {
+    if (!fullName) return 'רוכב';
+    return fullName.trim() || 'רוכב';
+  };
+
+  // Check if any API calls are still loading
+  const isLoading = isLoadingProfile || isLoadingRides;
 
   const filteredRides = useMemo(() => 
     getFilteredRides(mockRides, filterState), 
@@ -66,12 +148,19 @@ export function HomeScreen() {
     />
   );
 
+  const renderLoadingSpinner = () => (
+    <View style={styles.loadingContainer}>
+      <ActivityIndicator size="large" color={Colors.light.primary} />
+      <ThemedText style={styles.loadingText}>טוען נתונים...</ThemedText>
+    </View>
+  );
+
   const renderHeader = () => (
     <View style={styles.headerContainer}>
       {/* Welcome Section */}
       <View style={styles.welcomeSection}>
         <ThemedText style={styles.welcomeSmallText}>ברוך הבא,</ThemedText>
-        <ThemedText style={styles.welcomeNameText}>דוד זלצמן</ThemedText>
+        <ThemedText style={styles.welcomeNameText}>{getDisplayName(userProfile?.fullName)}</ThemedText>
       </View>
 
       {/* Featured Banner */}
@@ -107,6 +196,15 @@ export function HomeScreen() {
       </View>
     </View>
   );
+
+  // Show loading spinner while any API calls are in progress
+  if (isLoading) {
+    return (
+      <SafeAreaView style={styles.container} edges={['bottom', 'left', 'right']}>
+        {renderLoadingSpinner()}
+      </SafeAreaView>
+    );
+  }
 
   return (
     <SafeAreaView style={styles.container} edges={['bottom', 'left', 'right']}>
@@ -232,5 +330,16 @@ const styles = StyleSheet.create({
   },
   emptyContent: {
     flexGrow: 1,
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  loadingText: {
+    color: Colors.light.primary,
+    fontSize: 16,
+    fontWeight: 'bold',
+    marginTop: 16,
   },
 }); 

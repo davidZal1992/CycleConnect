@@ -10,6 +10,7 @@ interface AuthContextType {
   signUpWithEmail: (email: string, password: string, displayName: string) => Promise<void>;
   signInWithGoogle: () => Promise<void>;
   signOut: () => Promise<void>;
+  isLoading: boolean;
 }
 
 const AuthContext = createContext<AuthContextType>({
@@ -18,6 +19,7 @@ const AuthContext = createContext<AuthContextType>({
   signUpWithEmail: async () => {},
   signInWithGoogle: async () => {},
   signOut: async () => {},
+  isLoading: true,
 });
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
@@ -33,11 +35,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           displayName: user.displayName,
           email: user.email,
           emailVerified: user.emailVerified,
-          metadata: user.metadata,
-          photoURL: user.photoURL,
-          providerData: user.providerData,
           uid: user.uid,
         });
+      } else {
+        console.log('🔥 User is null - logged out');
       }
       setUser(user);
       setIsLoading(false);
@@ -75,7 +76,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const handleSignOut = async () => {
     try {
+      console.log('🔥 Starting Firebase signOut...');
       await auth().signOut();
+      console.log('🔥 Firebase signOut completed');
     } catch (error) {
       console.error('🔥 Error signing out:', error);
       throw error;
@@ -88,11 +91,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     signUpWithEmail: handleSignUpWithEmail,
     signInWithGoogle: handleSignInWithGoogle,
     signOut: handleSignOut,
+    isLoading,
   };
 
+  // Always render children, but let individual components handle loading states
   return (
     <AuthContext.Provider value={value}>
-      {!isLoading && children}
+      {children}
     </AuthContext.Provider>
   );
 }
