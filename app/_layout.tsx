@@ -6,7 +6,10 @@ import React, { createContext, useEffect, useState } from 'react';
 import { AppState, AppStateStatus } from 'react-native';
 import 'react-native-reanimated';
 
+import { AuthProvider } from '@/contexts/AuthContext';
 import { useColorScheme } from '@/hooks/use-color-scheme';
+// Initialize Firebase early
+import '@/config/firebase';
 
 // Create context to track app state
 export const AppStateContext = createContext<{
@@ -57,28 +60,30 @@ export default function RootLayout() {
   }
   
   return (
-    <AppStateContext.Provider value={{ isAppReady }}>
-      <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-        <Stack screenOptions={{
-          contentStyle: {
-            backgroundColor: colorScheme === 'dark' ? '#1E293B' : '#F8FAFC', // Match web colors
-          },
-          headerBackTitle: 'חזור', // Set default back button text to "חזור"
-        }}>
-          <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-          <Stack.Screen name="login" options={{ headerShown: false }} />
-          <Stack.Screen 
-            name="post-ride" 
-            options={{ 
-              title: 'פרסם רכיבה',
-              headerTitleAlign: 'center',
-              headerBackTitle: 'חזור'
-            }} 
-          />
-          <Stack.Screen name="+not-found" />
-        </Stack>
-        <StatusBar style="auto" />
-      </ThemeProvider>
-    </AppStateContext.Provider>
+    <AuthProvider>
+      <AppStateContext.Provider value={{ isAppReady }}>
+        <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
+          <Stack screenOptions={{
+            contentStyle: {
+              backgroundColor: colorScheme === 'dark' ? '#1E293B' : '#F8FAFC', // Match web colors
+            },
+            headerBackTitle: 'חזור', // Set default back button text to "חזור"
+          }}>
+            <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+            <Stack.Screen name="login" options={{ headerShown: false }} />
+            <Stack.Screen 
+              name="post-ride" 
+              options={{ 
+                title: 'פרסם רכיבה',
+                headerTitleAlign: 'center',
+                headerBackTitle: 'חזור'
+              }} 
+            />
+            <Stack.Screen name="+not-found" />
+          </Stack>
+          <StatusBar style="auto" />
+        </ThemeProvider>
+      </AppStateContext.Provider>
+    </AuthProvider>
   );
 }

@@ -1,18 +1,19 @@
 import { ThemedText } from '@/components/ThemedText';
 import { Colors } from '@/constants/Colors';
+import { useAuth } from '@/contexts/AuthContext';
 import { mockRides } from '@/data/mock-rides';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import {
-    ActivityIndicator,
-    Alert,
-    Image,
-    Linking,
-    ScrollView,
-    StyleSheet,
-    TouchableOpacity,
-    View
+  ActivityIndicator,
+  Alert,
+  Image,
+  Linking,
+  ScrollView,
+  StyleSheet,
+  TouchableOpacity,
+  View
 } from 'react-native';
 import MapView, { Marker } from 'react-native-maps';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -22,10 +23,20 @@ export default function RideDetailScreen() {
   const [ride, setRide] = useState(mockRides.find(r => r.id === id));
   const [loading, setLoading] = useState(!ride);
   const router = useRouter();
+  const { user } = useAuth();
+  const [isLoading, setIsLoading] = useState(true);
+  const [isFavorite, setIsFavorite] = useState(false);
   
-  // For demo purposes, assume the current user is the organizer
-  // In a real app, you would check if the current user ID matches the organizer ID
-  const isOrganizer = true;
+  // Add console logs to debug auth state
+  useEffect(() => {
+    console.log('Current user:', user);
+    console.log('Ride organizer:', ride?.organizer);
+    console.log('Is user logged in:', !!user);
+    console.log('Is ride organizer:', user?.uid === ride?.organizer.id);
+  }, [user, ride]);
+  
+  // Check if the current user is the organizer of this ride
+  const isOrganizer = user?.uid === ride?.organizer.id;
   
   // Simulate loading if ride not found immediately
   useEffect(() => {
@@ -38,6 +49,26 @@ export default function RideDetailScreen() {
       return () => clearTimeout(timeout);
     }
   }, [id, ride]);
+  
+  useEffect(() => {
+    // Simulate loading ride data
+    const loadRide = async () => {
+      try {
+        // In a real app, you would fetch this from your backend
+        const ride = mockRides.find(r => r.id === id);
+        if (ride) {
+          setRide(ride);
+          setIsFavorite(ride.isFavorite || false);
+        }
+      } catch (error) {
+        console.error('Error loading ride:', error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    loadRide();
+  }, [id]);
   
   const handleEditRide = () => {
     // Navigate to post-ride screen with edit parameters
@@ -74,6 +105,29 @@ export default function RideDetailScreen() {
       ],
       { cancelable: true }
     );
+  };
+  
+  const handleToggleFavorite = () => {
+    console.log('Toggle favorite clicked');
+    console.log('User:', user);
+    console.log('Ride organizer:', ride?.organizer);
+    
+    if (!user) {
+      Alert.alert('שגיאה', 'יש להתחבר כדי להוסיף למועדפים');
+      return;
+    }
+
+    // Don't allow favoriting your own rides
+    if (ride?.organizer.id === user.uid) {
+      Alert.alert('שגיאה', 'לא ניתן להוסיף את הרכיבה שלך למועדפים');
+      return;
+    }
+
+    setIsFavorite(!isFavorite);
+    // In a real app, you would update this in your backend
+    if (ride) {
+      ride.isFavorite = !isFavorite;
+    }
   };
   
   if (loading) {
@@ -123,205 +177,248 @@ export default function RideDetailScreen() {
       <Stack.Screen 
         options={{ 
           title: ride?.title,
-          headerRight: isOrganizer ? () => (
+          headerRight: () => (
             <View style={styles.headerActions}>
-              <TouchableOpacity 
-                style={styles.headerButton} 
-                onPress={handleEditRide}
-              >
-                <Ionicons name="create-outline" size={24} color={Colors.light.primary} />
-              </TouchableOpacity>
-              <TouchableOpacity 
-                style={styles.headerButton} 
-                onPress={handleDeleteRide}
-              >
-                <Ionicons name="trash-outline" size={24} color="#ff3b30" />
-              </TouchableOpacity>
+              {user && ride?.organizer.id !== user.uid && (
+                <TouchableOpacity 
+                  style={styles.headerButton} 
+                  onPress={handleToggleFavorite}
+                >
+                  <Ionicons 
+                    name={isFavorite ? "heart" : "heart-outline"} 
+                    size={24} 
+                    color={isFavorite ? "#ff3b30" : Colors.light.text} 
+                  />
+                </TouchableOpacity>
+              )}
+              {isOrganizer && (
+                <>
+                  <TouchableOpacity 
+                    style={styles.headerButton} 
+                    onPress={handleEditRide}
+                  >
+                    <Ionicons name="create-outline" size={24} color={Colors.light.primary} />
+                  </TouchableOpacity>
+                  <TouchableOpacity 
+                    style={styles.headerButton} 
+                    onPress={handleDeleteRide}
+                  >
+                    <Ionicons name="trash-outline" size={24} color="#ff3b30" />
+                  </TouchableOpacity>
+                </>
+              )}
             </View>
-          ) : undefined
+          )
         }} 
       />
       
       <SafeAreaView style={styles.container} edges={['bottom']}>
-        <ScrollView style={styles.scrollView}>
-          {/* Organizer */}
-          <View style={styles.section}>
-            <View style={styles.organizerContainer}>
-              <Image 
-                source={{ uri: ride.organizer.avatar }} 
-                style={styles.organizerAvatar} 
-              />
-              <View style={styles.organizerInfo}>
-                <ThemedText style={styles.organizerLabel}>מארגן/ת הרכיבה</ThemedText>
-                <ThemedText style={styles.organizerName}>{ride.organizer.name}</ThemedText>
+        {isLoading ? (
+          <View style={styles.loadingContainer}>
+            <ActivityIndicator size="large" color={Colors.light.primary} />
+          </View>
+        ) : ride ? (
+          <ScrollView style={styles.scrollView}>
+            <View style={styles.header}>
+              <ThemedText type="title" style={styles.title}>{ride.title}</ThemedText>
+            </View>
+            
+            {/* Organizer */}
+            <View style={styles.section}>
+              <View style={styles.organizerContainer}>
+                <Image 
+                  source={{ uri: ride.organizer.avatar }} 
+                  style={styles.organizerAvatar} 
+                />
+                <View style={styles.organizerInfo}>
+                  <ThemedText style={styles.organizerLabel}>מארגן/ת הרכיבה</ThemedText>
+                  <ThemedText style={styles.organizerName}>{ride.organizer.name}</ThemedText>
+                </View>
+              </View>
+              
+              {/* Contact options */}
+              <View style={styles.contactOptions}>
+                <View style={styles.bikeTypeContainer}>
+                  <ThemedText style={styles.bikeTypeText}>
+                    {ride.bikeType === 'electric' ? 'חשמלי' : 'אנלוגי'}
+                  </ThemedText>
+                </View>
+                
+                <View style={styles.contactButtonsContainer}>
+                  {user && ride.organizer.id !== user.uid && (
+                    <TouchableOpacity 
+                      style={styles.contactButton}
+                      onPress={handleToggleFavorite}
+                    >
+                      <Ionicons 
+                        name={isFavorite ? "heart" : "heart-outline"} 
+                        size={24} 
+                        color={isFavorite ? "#ff3b30" : Colors.light.text} 
+                      />
+                    </TouchableOpacity>
+                  )}
+                  <TouchableOpacity 
+                    style={styles.contactButton}
+                    onPress={() => {
+                      // Logic to open WhatsApp
+                      const phoneNumber = ride.organizer.phone || '';
+                      if (phoneNumber) {
+                        // Remove any hyphens or spaces for WhatsApp format
+                        const formattedNumber = phoneNumber.replace(/-/g, '').replace(/\s/g, '');
+                        // Add country code if not present (using Israel +972 code)
+                        const whatsappNumber = formattedNumber.startsWith('0') 
+                          ? '972' + formattedNumber.substring(1) 
+                          : formattedNumber;
+                        
+                        Linking.openURL(`whatsapp://send?phone=${whatsappNumber}`)
+                          .catch(err => console.error('Error opening WhatsApp:', err));
+                      }
+                    }}
+                  >
+                    <Ionicons name="logo-whatsapp" size={28} color="#25D366" />
+                  </TouchableOpacity>
+                  
+                  <TouchableOpacity 
+                    style={styles.contactButton}
+                    onPress={() => {
+                      // Logic to make a call
+                      const phoneNumber = ride.organizer.phone || '';
+                      if (phoneNumber) {
+                        Linking.openURL(`tel:${phoneNumber}`)
+                          .catch(err => console.error('Error opening phone:', err));
+                      }
+                    }}
+                  >
+                    <Ionicons name="call" size={26} color="#007AFF" />
+                  </TouchableOpacity>
+                </View>
               </View>
             </View>
             
-            {/* Contact options */}
-            <View style={styles.contactOptions}>
-              <View style={styles.bikeTypeContainer}>
-                <ThemedText style={styles.bikeTypeText}>
-                  {ride.bikeType === 'electric' ? 'חשמלי' : 'אנלוגי'}
-                </ThemedText>
-              </View>
-              
-              <View style={styles.contactButtonsContainer}>
-                <TouchableOpacity 
-                  style={styles.contactButton}
-                  onPress={() => {
-                    // Logic to open WhatsApp
-                    const phoneNumber = ride.organizer.phone || '';
-                    if (phoneNumber) {
-                      // Remove any hyphens or spaces for WhatsApp format
-                      const formattedNumber = phoneNumber.replace(/-/g, '').replace(/\s/g, '');
-                      // Add country code if not present (using Israel +972 code)
-                      const whatsappNumber = formattedNumber.startsWith('0') 
-                        ? '972' + formattedNumber.substring(1) 
-                        : formattedNumber;
-                      
-                      Linking.openURL(`whatsapp://send?phone=${whatsappNumber}`)
-                        .catch(err => console.error('Error opening WhatsApp:', err));
-                    }
-                  }}
-                >
-                  <Ionicons name="logo-whatsapp" size={28} color="#25D366" />
-                </TouchableOpacity>
-                
-                <TouchableOpacity 
-                  style={styles.contactButton}
-                  onPress={() => {
-                    // Logic to make a call
-                    const phoneNumber = ride.organizer.phone || '';
-                    if (phoneNumber) {
-                      Linking.openURL(`tel:${phoneNumber}`)
-                        .catch(err => console.error('Error opening phone:', err));
-                    }
-                  }}
-                >
-                  <Ionicons name="call" size={26} color="#007AFF" />
-                </TouchableOpacity>
-              </View>
-            </View>
-          </View>
-          
-          {/* Description */}
-          <View style={styles.descriptionSection}>
-            <ThemedText style={styles.descriptionTitle}>תיאור הרכיבה</ThemedText>
-            <ThemedText style={styles.descriptionText}>
-              {ride.description || 'אין תיאור זמין לרכיבה זו.'}
-            </ThemedText>
-          </View>
-          
-          {/* Map */}
-          <View style={styles.section}>
-            <View style={styles.mapContainer}>
-              {ride.coordinates && (
-                <MapView
-                  style={styles.map}
-                  initialRegion={{
-                    latitude: ride.coordinates.latitude,
-                    longitude: ride.coordinates.longitude,
-                    latitudeDelta: 0.01,
-                    longitudeDelta: 0.01,
-                  }}
-                >
-                  <Marker
-                    coordinate={{
-                      latitude: ride.coordinates.latitude,
-                      longitude: ride.coordinates.longitude,
-                    }}
-                    title={ride.title}
-                    description={ride.location}
-                  />
-                </MapView>
-              )}
-            </View>
-          </View>
-          
-          {/* Date & Time */}
-          <View style={styles.infoSection}>
-            <View style={styles.infoRow}>
-              <View style={styles.infoItem}>
-                <View style={styles.iconContainer}>
-                  <Ionicons name="calendar" size={24} color={Colors.light.primary} />
-                </View>
-                <ThemedText style={styles.infoLabel}>תאריך</ThemedText>
-                <ThemedText style={styles.infoValue}>{ride.date}</ThemedText>
-              </View>
-              
-              <View style={styles.infoItem}>
-                <View style={styles.iconContainer}>
-                  <Ionicons name="time" size={24} color={Colors.light.primary} />
-                </View>
-                <ThemedText style={styles.infoLabel}>שעה</ThemedText>
-                <ThemedText style={styles.infoValue}>{ride.time}</ThemedText>
-              </View>
-            </View>
-          </View>
-          
-          {/* Location & Distance */}
-          <View style={styles.infoSection}>
-            <View style={styles.infoRow}>
-              <View style={styles.infoItem}>
-                <View style={styles.iconContainer}>
-                  <Ionicons name="location" size={24} color={Colors.light.primary} />
-                </View>
-                <ThemedText style={styles.infoLabel}>מיקום</ThemedText>
-                <ThemedText style={styles.infoValue}>{ride.location}</ThemedText>
-              </View>
-              
-              <View style={styles.infoItem}>
-                <View style={styles.iconContainer}>
-                  <MaterialCommunityIcons name="map-marker-distance" size={24} color={Colors.light.primary} />
-                </View>
-                <ThemedText style={styles.infoLabel}>מרחק</ThemedText>
-                <ThemedText style={styles.infoValue}>{ride.distance} ק"מ</ThemedText>
-              </View>
-            </View>
-          </View>
-          
-          {/* Specs Container */}
-          <View style={styles.specsContainer}>
-            <View style={styles.specItem}>
-              <ThemedText style={styles.specLabel}>סוג רכיבה</ThemedText>
-              <ThemedText style={styles.specValue}>
-                {ride.rideType === 'road' ? 'כביש' : 
-                 ride.rideType === 'offroad' ? 'שטח' : 
-                 ride.rideType === 'trails' ? 'שבילים' : 
-                 ride.rideType === 'urban' ? 'עירוני' : 'גראבל'}
+            {/* Description */}
+            <View style={styles.descriptionSection}>
+              <ThemedText style={styles.descriptionTitle}>תיאור הרכיבה</ThemedText>
+              <ThemedText style={styles.descriptionText}>
+                {ride.description || 'אין תיאור זמין לרכיבה זו.'}
               </ThemedText>
             </View>
             
-            <View style={styles.specItem}>
-              <ThemedText style={styles.specLabel}>רמת קושי</ThemedText>
-              <View style={[styles.difficultyBadge, { backgroundColor: getDifficultyColor(ride.difficultyLevel) }]}>
-                <ThemedText style={styles.difficultyText}>
-                  {ride.difficultyLevel === 'easy' ? 'קל' : 
-                   ride.difficultyLevel === 'medium' ? 'בינוני' : 'קשה'}
-                </ThemedText>
+            {/* Map */}
+            <View style={styles.section}>
+              <View style={styles.mapContainer}>
+                {ride.coordinates && (
+                  <MapView
+                    style={styles.map}
+                    initialRegion={{
+                      latitude: ride.coordinates.latitude,
+                      longitude: ride.coordinates.longitude,
+                      latitudeDelta: 0.01,
+                      longitudeDelta: 0.01,
+                    }}
+                  >
+                    <Marker
+                      coordinate={{
+                        latitude: ride.coordinates.latitude,
+                        longitude: ride.coordinates.longitude,
+                      }}
+                      title={ride.title}
+                      description={ride.location}
+                    />
+                  </MapView>
+                )}
               </View>
             </View>
             
-            <View style={styles.specItem}>
-              <ThemedText style={styles.specLabel}>רמה טכנית</ThemedText>
-              <View style={[styles.difficultyBadge, { backgroundColor: ride.technicalLevel === 'none' ? '#9e9e9e' : getLevelColor(ride.technicalLevel) }]}>
-                <ThemedText style={styles.difficultyText}>
-                  {getTechnicalLevelText(ride.technicalLevel)}
-                </ThemedText>
+            {/* Date & Time */}
+            <View style={styles.infoSection}>
+              <View style={styles.infoRow}>
+                <View style={styles.infoItem}>
+                  <View style={styles.iconContainer}>
+                    <Ionicons name="calendar" size={24} color={Colors.light.primary} />
+                  </View>
+                  <ThemedText style={styles.infoLabel}>תאריך</ThemedText>
+                  <ThemedText style={styles.infoValue}>{ride.date}</ThemedText>
+                </View>
+                
+                <View style={styles.infoItem}>
+                  <View style={styles.iconContainer}>
+                    <Ionicons name="time" size={24} color={Colors.light.primary} />
+                  </View>
+                  <ThemedText style={styles.infoLabel}>שעה</ThemedText>
+                  <ThemedText style={styles.infoValue}>{ride.time}</ThemedText>
+                </View>
               </View>
             </View>
             
-            <View style={styles.specItem}>
-              <ThemedText style={styles.specLabel}>מהירות</ThemedText>
-              <View style={[styles.difficultyBadge, { backgroundColor: getLevelColor(ride.speedLevel === 'slow' ? 'easy' : ride.speedLevel === 'medium' ? 'medium' : 'hard') }]}>
-                <ThemedText style={styles.difficultyText}>
-                  {ride.speedLevel === 'slow' ? 'איטי' : 
-                   ride.speedLevel === 'medium' ? 'זורם' : 'מהיר'}
-                </ThemedText>
+            {/* Location & Distance */}
+            <View style={styles.infoSection}>
+              <View style={styles.infoRow}>
+                <View style={styles.infoItem}>
+                  <View style={styles.iconContainer}>
+                    <Ionicons name="location" size={24} color={Colors.light.primary} />
+                  </View>
+                  <ThemedText style={styles.infoLabel}>מיקום</ThemedText>
+                  <ThemedText style={styles.infoValue}>{ride.location}</ThemedText>
+                </View>
+                
+                <View style={styles.infoItem}>
+                  <View style={styles.iconContainer}>
+                    <MaterialCommunityIcons name="map-marker-distance" size={24} color={Colors.light.primary} />
+                  </View>
+                  <ThemedText style={styles.infoLabel}>מרחק</ThemedText>
+                  <ThemedText style={styles.infoValue}>{ride.distance} ק"מ</ThemedText>
+                </View>
               </View>
             </View>
+            
+            {/* Specs Container */}
+            <View style={styles.specsContainer}>
+              <View style={styles.specItem}>
+                <ThemedText style={styles.specLabel}>סוג רכיבה</ThemedText>
+                <ThemedText style={styles.specValue}>
+                  {ride.rideType === 'road' ? 'כביש' : 
+                   ride.rideType === 'offroad' ? 'שטח' : 
+                   ride.rideType === 'trails' ? 'שבילים' : 
+                   ride.rideType === 'urban' ? 'עירוני' : 'גראבל'}
+                </ThemedText>
+              </View>
+              
+              <View style={styles.specItem}>
+                <ThemedText style={styles.specLabel}>רמת קושי</ThemedText>
+                <View style={[styles.difficultyBadge, { backgroundColor: getDifficultyColor(ride.difficultyLevel) }]}>
+                  <ThemedText style={styles.difficultyText}>
+                    {ride.difficultyLevel === 'easy' ? 'קל' : 
+                     ride.difficultyLevel === 'medium' ? 'בינוני' : 'קשה'}
+                  </ThemedText>
+                </View>
+              </View>
+              
+              <View style={styles.specItem}>
+                <ThemedText style={styles.specLabel}>רמה טכנית</ThemedText>
+                <View style={[styles.difficultyBadge, { backgroundColor: ride.technicalLevel === 'none' ? '#9e9e9e' : getLevelColor(ride.technicalLevel) }]}>
+                  <ThemedText style={styles.difficultyText}>
+                    {getTechnicalLevelText(ride.technicalLevel)}
+                  </ThemedText>
+                </View>
+              </View>
+              
+              <View style={styles.specItem}>
+                <ThemedText style={styles.specLabel}>מהירות</ThemedText>
+                <View style={[styles.difficultyBadge, { backgroundColor: getLevelColor(ride.speedLevel === 'slow' ? 'easy' : ride.speedLevel === 'medium' ? 'medium' : 'hard') }]}>
+                  <ThemedText style={styles.difficultyText}>
+                    {ride.speedLevel === 'slow' ? 'איטי' : 
+                     ride.speedLevel === 'medium' ? 'זורם' : 'מהיר'}
+                  </ThemedText>
+                </View>
+              </View>
+            </View>
+          </ScrollView>
+        ) : (
+          <View style={styles.errorContainer}>
+            <Ionicons name="alert-circle" size={48} color={Colors.light.text} />
+            <ThemedText style={styles.errorText}>רכיבה לא נמצאה</ThemedText>
           </View>
-        </ScrollView>
+        )}
       </SafeAreaView>
     </>
   );
@@ -512,6 +609,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     marginTop: 12,
+    paddingHorizontal: 8,
   },
   spacer: {
     flex: 1,
@@ -520,7 +618,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'flex-end',
-    gap: 16,
+    gap: 12,
   },
   contactButton: {
     padding: 8,
@@ -551,10 +649,25 @@ const styles = StyleSheet.create({
   headerActions: {
     flexDirection: 'row',
     alignItems: 'center',
+    gap: 8,
   },
   headerButton: {
     padding: 8,
-    marginLeft: 8,
+    borderRadius: 20,
+    backgroundColor: 'rgba(0, 0, 0, 0.05)',
+  },
+  header: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  favoriteButton: {
+    padding: 8,
+  },
+  title: {
+    fontSize: 18,
+    fontWeight: 'bold',
   },
 }); 
 

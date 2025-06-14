@@ -1,35 +1,31 @@
 {
   "expo": {
     "name": "CycleConnect",
-    "slug": "CycleConnect",
+    "slug": "cycleconnect",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "cycleconnect",
     "userInterfaceStyle": "automatic",
-    "newArchEnabled": true,
+    "splash": {
+      "image": "./assets/images/splash.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#ffffff"
+    },
+    "assetBundlePatterns": [
+      "**/*"
+    ],
     "ios": {
       "supportsTablet": true,
-      "infoPlist": {
-        "NSAppTransportSecurity": {
-          "NSAllowsArbitraryLoads": true
-        },
-        "NSLocationWhenInUseUsageDescription": "CycleConnect uses your location to show nearby cycling routes and meeting points.",
-        "NSLocationAlwaysAndWhenInUseUsageDescription": "CycleConnect uses your location to show nearby cycling routes and meeting points."
-      },
-      "bundleIdentifier": "com.davidzal1992.CycleConnect"
+      "bundleIdentifier": "com.cycleconnect.app",
+      "usesAppleSignIn": true
     },
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/adaptive-icon.png",
         "backgroundColor": "#ffffff"
       },
-      "edgeToEdgeEnabled": true,
-      "permissions": [
-        "ACCESS_FINE_LOCATION",
-        "ACCESS_COARSE_LOCATION"
-      ],
-      "package": "com.davidzal1992.CycleConnect"
+      "package": "com.cycleconnect.app"
     },
     "web": {
       "bundler": "metro",
@@ -37,20 +33,10 @@
       "favicon": "./assets/images/favicon.png"
     },
     "plugins": [
-      "expo-router",
-      "expo-dev-client",
-      [
-        "expo-splash-screen",
-        {
-          "image": "./assets/images/splash-icon.png",
-          "imageWidth": 200,
-          "resizeMode": "contain",
-          "backgroundColor": "#ffffff"
-        }
-      ]
+      "expo-router"
     ],
     "experiments": {
       "typedRoutes": true
     }
   }
-}
+} 

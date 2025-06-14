@@ -8,28 +8,30 @@
 
 /* Begin PBXBuildFile section */
 		13B07FBF1A68108700A75B9A /* Images.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 13B07FB51A68108700A75B9A /* Images.xcassets */; };
+		2DC876B464CC400AABB0318B /* GoogleService-Info.plist in Resources */ = {isa = PBXBuildFile; fileRef = 857D97E7A5BB46F38E3B0E72 /* GoogleService-Info.plist */; };
 		3E461D99554A48A4959DE609 /* SplashScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = AA286B85B6C04FC6940260E9 /* SplashScreen.storyboard */; };
-		4E384E35ADEA680DE8DBBF7A /* libPods-CycleConnect.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 8473B6AD11FBE2397ED60238 /* libPods-CycleConnect.a */; };
+		3FA4336F21CA3751F06AA9CB /* libPods-CycleConnect.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 64AD90F8B0505A7558B706F2 /* libPods-CycleConnect.a */; };
+		AA5FD9D93D25CC8AAB29DE5C /* ExpoModulesProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = D93EDDDC091756FDD6520E17 /* ExpoModulesProvider.swift */; };
 		BB2F792D24A3F905000567C9 /* Expo.plist in Resources */ = {isa = PBXBuildFile; fileRef = BB2F792C24A3F905000567C9 /* Expo.plist */; };
-		C57C25E49401501E273C88D5 /* ExpoModulesProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = D4CBF1986343B02847EBBC50 /* ExpoModulesProvider.swift */; };
-		C5A4C4D09E3DB6F602967D0E /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = 08B85DDBFBEAC8EB3C698DE2 /* PrivacyInfo.xcprivacy */; };
+		C5B38D8570AB3E5E3FCFBB38 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = AA33319AA360413A4DF50EBE /* PrivacyInfo.xcprivacy */; };
 		F11748422D0307B40044C1D9 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = F11748412D0307B40044C1D9 /* AppDelegate.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
-		08B85DDBFBEAC8EB3C698DE2 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; includeInIndex = 1; name = PrivacyInfo.xcprivacy; path = CycleConnect/PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
 		13B07F961A680F5B00A75B9A /* CycleConnect.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = CycleConnect.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		13B07FB51A68108700A75B9A /* Images.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; name = Images.xcassets; path = CycleConnect/Images.xcassets; sourceTree = "<group>"; };
 		13B07FB61A68108700A75B9A /* Info.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; name = Info.plist; path = CycleConnect/Info.plist; sourceTree = "<group>"; };
-		44947D3FDA5CD3E70222A2D4 /* Pods-CycleConnect.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-CycleConnect.debug.xcconfig"; path = "Target Support Files/Pods-CycleConnect/Pods-CycleConnect.debug.xcconfig"; sourceTree = "<group>"; };
-		8473B6AD11FBE2397ED60238 /* libPods-CycleConnect.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = "libPods-CycleConnect.a"; sourceTree = BUILT_PRODUCTS_DIR; };
+		212BCD54FBC6C463DA4838B8 /* Pods-CycleConnect.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-CycleConnect.release.xcconfig"; path = "Target Support Files/Pods-CycleConnect/Pods-CycleConnect.release.xcconfig"; sourceTree = "<group>"; };
+		33091611AAAD27E32C3A2D74 /* Pods-CycleConnect.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-CycleConnect.debug.xcconfig"; path = "Target Support Files/Pods-CycleConnect/Pods-CycleConnect.debug.xcconfig"; sourceTree = "<group>"; };
+		64AD90F8B0505A7558B706F2 /* libPods-CycleConnect.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = "libPods-CycleConnect.a"; sourceTree = BUILT_PRODUCTS_DIR; };
+		857D97E7A5BB46F38E3B0E72 /* GoogleService-Info.plist */ = {isa = PBXFileReference; explicitFileType = undefined; fileEncoding = 4; includeInIndex = 0; lastKnownFileType = text.plist.xml; name = "GoogleService-Info.plist"; path = "CycleConnect/GoogleService-Info.plist"; sourceTree = "<group>"; };
 		AA286B85B6C04FC6940260E9 /* SplashScreen.storyboard */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = file.storyboard; name = SplashScreen.storyboard; path = CycleConnect/SplashScreen.storyboard; sourceTree = "<group>"; };
+		AA33319AA360413A4DF50EBE /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; includeInIndex = 1; name = PrivacyInfo.xcprivacy; path = CycleConnect/PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
 		BB2F792C24A3F905000567C9 /* Expo.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; path = Expo.plist; sourceTree = "<group>"; };
-		D4CBF1986343B02847EBBC50 /* ExpoModulesProvider.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ExpoModulesProvider.swift; path = "Pods/Target Support Files/Pods-CycleConnect/ExpoModulesProvider.swift"; sourceTree = "<group>"; };
+		D93EDDDC091756FDD6520E17 /* ExpoModulesProvider.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ExpoModulesProvider.swift; path = "Pods/Target Support Files/Pods-CycleConnect/ExpoModulesProvider.swift"; sourceTree = "<group>"; };
 		ED297162215061F000B7C4FE /* JavaScriptCore.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = JavaScriptCore.framework; path = System/Library/Frameworks/JavaScriptCore.framework; sourceTree = SDKROOT; };
 		F11748412D0307B40044C1D9 /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = AppDelegate.swift; path = CycleConnect/AppDelegate.swift; sourceTree = "<group>"; };
 		F11748442D0722820044C1D9 /* CycleConnect-Bridging-Header.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; name = "CycleConnect-Bridging-Header.h"; path = "CycleConnect/CycleConnect-Bridging-Header.h"; sourceTree = "<group>"; };
-		FCEDE0C1B7FB175D724BEE5F /* Pods-CycleConnect.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-CycleConnect.release.xcconfig"; path = "Target Support Files/Pods-CycleConnect/Pods-CycleConnect.release.xcconfig"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -37,7 +39,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				4E384E35ADEA680DE8DBBF7A /* libPods-CycleConnect.a in Frameworks */,
+				3FA4336F21CA3751F06AA9CB /* libPods-CycleConnect.a in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -53,7 +55,16 @@
 				13B07FB51A68108700A75B9A /* Images.xcassets */,
 				13B07FB61A68108700A75B9A /* Info.plist */,
 				AA286B85B6C04FC6940260E9 /* SplashScreen.storyboard */,
-				08B85DDBFBEAC8EB3C698DE2 /* PrivacyInfo.xcprivacy */,
+				857D97E7A5BB46F38E3B0E72 /* GoogleService-Info.plist */,
+				AA33319AA360413A4DF50EBE /* PrivacyInfo.xcprivacy */,
+			);
+			name = CycleConnect;
+			sourceTree = "<group>";
+		};
+		271F32801CE83615835A0986 /* CycleConnect */ = {
+			isa = PBXGroup;
+			children = (
+				D93EDDDC091756FDD6520E17 /* ExpoModulesProvider.swift */,
 			);
 			name = CycleConnect;
 			sourceTree = "<group>";
@@ -62,27 +73,9 @@
 			isa = PBXGroup;
 			children = (
 				ED297162215061F000B7C4FE /* JavaScriptCore.framework */,
-				8473B6AD11FBE2397ED60238 /* libPods-CycleConnect.a */,
+				64AD90F8B0505A7558B706F2 /* libPods-CycleConnect.a */,
 			);
 			name = Frameworks;
-			sourceTree = "<group>";
-		};
-		34C73A52A45E3A5B1C961A94 /* Pods */ = {
-			isa = PBXGroup;
-			children = (
-				44947D3FDA5CD3E70222A2D4 /* Pods-CycleConnect.debug.xcconfig */,
-				FCEDE0C1B7FB175D724BEE5F /* Pods-CycleConnect.release.xcconfig */,
-			);
-			name = Pods;
-			path = Pods;
-			sourceTree = "<group>";
-		};
-		822477317DCD413515FC9361 /* ExpoModulesProviders */ = {
-			isa = PBXGroup;
-			children = (
-				B5683C008FED25A22758CFDC /* CycleConnect */,
-			);
-			name = ExpoModulesProviders;
 			sourceTree = "<group>";
 		};
 		832341AE1AAA6A7D00B99B32 /* Libraries */ = {
@@ -99,8 +92,8 @@
 				832341AE1AAA6A7D00B99B32 /* Libraries */,
 				83CBBA001A601CBA00E9B192 /* Products */,
 				2D16E6871FA4F8E400B85C8A /* Frameworks */,
-				34C73A52A45E3A5B1C961A94 /* Pods */,
-				822477317DCD413515FC9361 /* ExpoModulesProviders */,
+				ED823E72404F5F0DF3DC350B /* Pods */,
+				B909D3332567A4E5A0FAE86A /* ExpoModulesProviders */,
 			);
 			indentWidth = 2;
 			sourceTree = "<group>";
@@ -115,12 +108,12 @@
 			name = Products;
 			sourceTree = "<group>";
 		};
-		B5683C008FED25A22758CFDC /* CycleConnect */ = {
+		B909D3332567A4E5A0FAE86A /* ExpoModulesProviders */ = {
 			isa = PBXGroup;
 			children = (
-				D4CBF1986343B02847EBBC50 /* ExpoModulesProvider.swift */,
+				271F32801CE83615835A0986 /* CycleConnect */,
 			);
-			name = CycleConnect;
+			name = ExpoModulesProviders;
 			sourceTree = "<group>";
 		};
 		BB2F792B24A3F905000567C9 /* Supporting */ = {
@@ -132,6 +125,16 @@
 			path = CycleConnect/Supporting;
 			sourceTree = "<group>";
 		};
+		ED823E72404F5F0DF3DC350B /* Pods */ = {
+			isa = PBXGroup;
+			children = (
+				33091611AAAD27E32C3A2D74 /* Pods-CycleConnect.debug.xcconfig */,
+				212BCD54FBC6C463DA4838B8 /* Pods-CycleConnect.release.xcconfig */,
+			);
+			name = Pods;
+			path = Pods;
+			sourceTree = "<group>";
+		};
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
@@ -140,13 +143,13 @@
 			buildConfigurationList = 13B07F931A680F5B00A75B9A /* Build configuration list for PBXNativeTarget "CycleConnect" */;
 			buildPhases = (
 				08A4A3CD28434E44B6B9DE2E /* [CP] Check Pods Manifest.lock */,
-				075E657C010A0DCB7CF1C4DB /* [Expo] Configure project */,
+				2E62A81C2BCD662164991326 /* [Expo] Configure project */,
 				13B07F871A680F5B00A75B9A /* Sources */,
 				13B07F8C1A680F5B00A75B9A /* Frameworks */,
 				13B07F8E1A680F5B00A75B9A /* Resources */,
 				00DD1BFF1BD5951E006B06BC /* Bundle React Native code and images */,
 				800E24972A6A228C8D4807E9 /* [CP] Copy Pods Resources */,
-				1DA87FCA25BE390C4D100813 /* [CP] Embed Pods Frameworks */,
+				8AF0BD12420E9298E6541106 /* [CP] Embed Pods Frameworks */,
 			);
 			buildRules = (
 			);
@@ -196,7 +199,8 @@
 				BB2F792D24A3F905000567C9 /* Expo.plist in Resources */,
 				13B07FBF1A68108700A75B9A /* Images.xcassets in Resources */,
 				3E461D99554A48A4959DE609 /* SplashScreen.storyboard in Resources */,
-				C5A4C4D09E3DB6F602967D0E /* PrivacyInfo.xcprivacy in Resources */,
+				2DC876B464CC400AABB0318B /* GoogleService-Info.plist in Resources */,
+				C5B38D8570AB3E5E3FCFBB38 /* PrivacyInfo.xcprivacy in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -216,26 +220,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "if [[ -f \"$PODS_ROOT/../.xcode.env\" ]]; then\n  source \"$PODS_ROOT/../.xcode.env\"\nfi\nif [[ -f \"$PODS_ROOT/../.xcode.env.local\" ]]; then\n  source \"$PODS_ROOT/../.xcode.env.local\"\nfi\n\n# The project root by default is one level up from the ios directory\nexport PROJECT_ROOT=\"$PROJECT_DIR\"/..\n\nif [[ \"$CONFIGURATION\" = *Debug* ]]; then\n  export SKIP_BUNDLING=1\nfi\nif [[ -z \"$ENTRY_FILE\" ]]; then\n  # Set the entry JS file using the bundler's entry resolution.\n  export ENTRY_FILE=\"$(\"$NODE_BINARY\" -e \"require('expo/scripts/resolveAppEntry')\" \"$PROJECT_ROOT\" ios absolute | tail -n 1)\"\nfi\n\nif [[ -z \"$CLI_PATH\" ]]; then\n  # Use Expo CLI\n  export CLI_PATH=\"$(\"$NODE_BINARY\" --print \"require.resolve('@expo/cli')\")\"\nfi\nif [[ -z \"$BUNDLE_COMMAND\" ]]; then\n  # Default Expo CLI command for bundling\n  export BUNDLE_COMMAND=\"export:embed\"\nfi\n\n`\"$NODE_BINARY\" --print \"require('path').dirname(require.resolve('react-native/package.json')) + '/scripts/react-native-xcode.sh'\"`\n";
-		};
-		075E657C010A0DCB7CF1C4DB /* [Expo] Configure project */ = {
-			isa = PBXShellScriptBuildPhase;
-			alwaysOutOfDate = 1;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			inputFileListPaths = (
-			);
-			inputPaths = (
-			);
-			name = "[Expo] Configure project";
-			outputFileListPaths = (
-			);
-			outputPaths = (
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-			shellPath = /bin/sh;
-			shellScript = "# This script configures Expo modules and generates the modules provider file.\nbash -l -c \"./Pods/Target\\ Support\\ Files/Pods-CycleConnect/expo-configure-project.sh\"\n";
+			shellScript = "if [[ -f \"$PODS_ROOT/../.xcode.env\" ]]; then\n  source \"$PODS_ROOT/../.xcode.env\"\nfi\nif [[ -f \"$PODS_ROOT/../.xcode.env.local\" ]]; then\n  source \"$PODS_ROOT/../.xcode.env.local\"\nfi\n\n# The project root by default is one level up from the ios directory\nexport PROJECT_ROOT=\"$PROJECT_DIR\"/..\n\nif [[ \"$CONFIGURATION\" = *Debug* ]]; then\n  export SKIP_BUNDLING=1\nfi\nif [[ -z \"$ENTRY_FILE\" ]]; then\n  # Set the entry JS file using the bundler's entry resolution.\n  export ENTRY_FILE=\"$(\"$NODE_BINARY\" -e \"require('expo/scripts/resolveAppEntry')\" \"$PROJECT_ROOT\" ios absolute | tail -n 1)\"\nfi\n\nif [[ -z \"$CLI_PATH\" ]]; then\n  # Use Expo CLI\n  export CLI_PATH=\"$(\"$NODE_BINARY\" --print \"require.resolve('@expo/cli', { paths: [require.resolve('expo/package.json')] })\")\"\nfi\nif [[ -z \"$BUNDLE_COMMAND\" ]]; then\n  # Default Expo CLI command for bundling\n  export BUNDLE_COMMAND=\"export:embed\"\nfi\n\n# Source .xcode.env.updates if it exists to allow\n# SKIP_BUNDLING to be unset if needed\nif [[ -f \"$PODS_ROOT/../.xcode.env.updates\" ]]; then\n  source \"$PODS_ROOT/../.xcode.env.updates\"\nfi\n# Source local changes to allow overrides\n# if needed\nif [[ -f \"$PODS_ROOT/../.xcode.env.local\" ]]; then\n  source \"$PODS_ROOT/../.xcode.env.local\"\nfi\n\n`\"$NODE_BINARY\" --print \"require('path').dirname(require.resolve('react-native/package.json')) + '/scripts/react-native-xcode.sh'\"`\n\n";
 		};
 		08A4A3CD28434E44B6B9DE2E /* [CP] Check Pods Manifest.lock */ = {
 			isa = PBXShellScriptBuildPhase;
@@ -259,23 +244,24 @@
 			shellScript = "diff \"${PODS_PODFILE_DIR_PATH}/Podfile.lock\" \"${PODS_ROOT}/Manifest.lock\" > /dev/null\nif [ $? != 0 ] ; then\n    # print error to STDERR\n    echo \"error: The sandbox is not in sync with the Podfile.lock. Run 'pod install' or update your CocoaPods installation.\" >&2\n    exit 1\nfi\n# This output is used by Xcode 'outputs' to avoid re-running this script phase.\necho \"SUCCESS\" > \"${SCRIPT_OUTPUT_FILE_0}\"\n";
 			showEnvVarsInLog = 0;
 		};
-		1DA87FCA25BE390C4D100813 /* [CP] Embed Pods Frameworks */ = {
+		2E62A81C2BCD662164991326 /* [Expo] Configure project */ = {
 			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
 			buildActionMask = 2147483647;
 			files = (
 			);
-			inputPaths = (
-				"${PODS_ROOT}/Target Support Files/Pods-CycleConnect/Pods-CycleConnect-frameworks.sh",
-				"${PODS_XCFRAMEWORKS_BUILD_DIR}/hermes-engine/Pre-built/hermes.framework/hermes",
+			inputFileListPaths = (
 			);
-			name = "[CP] Embed Pods Frameworks";
+			inputPaths = (
+			);
+			name = "[Expo] Configure project";
+			outputFileListPaths = (
+			);
 			outputPaths = (
-				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/hermes.framework",
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "\"${PODS_ROOT}/Target Support Files/Pods-CycleConnect/Pods-CycleConnect-frameworks.sh\"\n";
-			showEnvVarsInLog = 0;
+			shellScript = "# This script configures Expo modules and generates the modules provider file.\nbash -l -c \"./Pods/Target\\ Support\\ Files/Pods-CycleConnect/expo-configure-project.sh\"\n";
 		};
 		800E24972A6A228C8D4807E9 /* [CP] Copy Pods Resources */ = {
 			isa = PBXShellScriptBuildPhase;
@@ -327,6 +313,24 @@
 			shellScript = "\"${PODS_ROOT}/Target Support Files/Pods-CycleConnect/Pods-CycleConnect-resources.sh\"\n";
 			showEnvVarsInLog = 0;
 		};
+		8AF0BD12420E9298E6541106 /* [CP] Embed Pods Frameworks */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputPaths = (
+				"${PODS_ROOT}/Target Support Files/Pods-CycleConnect/Pods-CycleConnect-frameworks.sh",
+				"${PODS_XCFRAMEWORKS_BUILD_DIR}/hermes-engine/Pre-built/hermes.framework/hermes",
+			);
+			name = "[CP] Embed Pods Frameworks";
+			outputPaths = (
+				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/hermes.framework",
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "\"${PODS_ROOT}/Target Support Files/Pods-CycleConnect/Pods-CycleConnect-frameworks.sh\"\n";
+			showEnvVarsInLog = 0;
+		};
 /* End PBXShellScriptBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
@@ -335,7 +339,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				F11748422D0307B40044C1D9 /* AppDelegate.swift in Sources */,
-				C57C25E49401501E273C88D5 /* ExpoModulesProvider.swift in Sources */,
+				AA5FD9D93D25CC8AAB29DE5C /* ExpoModulesProvider.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -344,7 +348,7 @@
 /* Begin XCBuildConfiguration section */
 		13B07F941A680F5B00A75B9A /* Debug */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = 44947D3FDA5CD3E70222A2D4 /* Pods-CycleConnect.debug.xcconfig */;
+			baseConfigurationReference = 33091611AAAD27E32C3A2D74 /* Pods-CycleConnect.debug.xcconfig */;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CLANG_ENABLE_MODULES = YES;
@@ -368,8 +372,8 @@
 					"-lc++",
 				);
 				OTHER_SWIFT_FLAGS = "$(inherited) -D EXPO_CONFIGURATION_DEBUG";
-				PRODUCT_BUNDLE_IDENTIFIER = com.cycleconnect.app;
-				PRODUCT_NAME = CycleConnect;
+				PRODUCT_BUNDLE_IDENTIFIER = com.davidzal1992.CycleConnect;
+				PRODUCT_NAME = "CycleConnect";
 				SWIFT_OBJC_BRIDGING_HEADER = "CycleConnect/CycleConnect-Bridging-Header.h";
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
 				SWIFT_VERSION = 5.0;
@@ -380,7 +384,7 @@
 		};
 		13B07F951A680F5B00A75B9A /* Release */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = FCEDE0C1B7FB175D724BEE5F /* Pods-CycleConnect.release.xcconfig */;
+			baseConfigurationReference = 212BCD54FBC6C463DA4838B8 /* Pods-CycleConnect.release.xcconfig */;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CLANG_ENABLE_MODULES = YES;
@@ -399,8 +403,8 @@
 					"-lc++",
 				);
 				OTHER_SWIFT_FLAGS = "$(inherited) -D EXPO_CONFIGURATION_RELEASE";
-				PRODUCT_BUNDLE_IDENTIFIER = com.cycleconnect.app;
-				PRODUCT_NAME = CycleConnect;
+				PRODUCT_BUNDLE_IDENTIFIER = com.davidzal1992.CycleConnect;
+				PRODUCT_NAME = "CycleConnect";
 				SWIFT_OBJC_BRIDGING_HEADER = "CycleConnect/CycleConnect-Bridging-Header.h";
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
@@ -470,7 +474,6 @@
 				REACT_NATIVE_PATH = "${PODS_ROOT}/../../node_modules/react-native";
 				SDKROOT = iphoneos;
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "$(inherited) DEBUG";
-				SWIFT_VERSION = 5.0;
 				USE_HERMES = true;
 			};
 			name = Debug;
@@ -528,7 +531,6 @@
 				);
 				REACT_NATIVE_PATH = "${PODS_ROOT}/../../node_modules/react-native";
 				SDKROOT = iphoneos;
-				SWIFT_VERSION = 5.0;
 				USE_HERMES = true;
 				VALIDATE_PRODUCT = YES;
 			};

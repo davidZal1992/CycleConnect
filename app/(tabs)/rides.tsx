@@ -6,11 +6,11 @@ import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { useEffect, useState } from 'react';
 import {
-    Alert,
-    FlatList,
-    StyleSheet,
-    TouchableOpacity,
-    View
+  Alert,
+  FlatList,
+  StyleSheet,
+  TouchableOpacity,
+  View
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -343,12 +343,19 @@ const styles = StyleSheet.create({
   },
   actionsContainer: {
     flexDirection: 'column',
-    alignItems: 'center',
+    alignItems: 'flex-end',
     justifyContent: 'center',
+    width: 70,
+    paddingRight: 8,
   },
   actionButton: {
     padding: 8,
     marginBottom: 4,
+    width: 36,
+    height: 36,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 18,
   },
   expiredBanner: {
     backgroundColor: '#ff3b30',

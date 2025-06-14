@@ -1,9 +1,10 @@
+import { auth } from "@/config/firebase";
 import { Colors } from "@/constants/Colors";
 import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from 'expo-haptics';
 import { useRouter } from "expo-router";
 import React, { useState } from "react";
-import { StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
+import { ActivityIndicator, Alert, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
 
 interface RegisterFormProps {
   email: string;
@@ -26,6 +27,7 @@ export function RegisterForm({
   const [nameFocused, setNameFocused] = useState(false);
   const [emailFocused, setEmailFocused] = useState(false);
   const [passwordFocused, setPasswordFocused] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
   const router = useRouter();
   
   const primaryColor = Colors.light.primary;
@@ -39,11 +41,70 @@ export function RegisterForm({
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
   };
 
-  const handleRegister = () => {
-    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    // In a real app, we would register with a backend
-    alert("ההרשמה הצליחה!\nברוכים הבאים ל-CycleConnect!");
-    router.push("/profile-creation");
+  const handleRegister = async () => {
+    // Validate inputs
+    if (!name.trim()) {
+      Alert.alert('שגיאה', 'אנא הכנס שם מלא');
+      return;
+    }
+
+    if (!email.trim()) {
+      Alert.alert('שגיאה', 'אנא הכנס כתובת אימייל');
+      return;
+    }
+
+    if (!email.includes('@')) {
+      Alert.alert('שגיאה', 'אנא הכנס כתובת אימייל תקינה');
+      return;
+    }
+
+    if (!password.trim()) {
+      Alert.alert('שגיאה', 'אנא הכנס סיסמה');
+      return;
+    }
+
+    if (password.length < 6) {
+      Alert.alert('שגיאה', 'הסיסמה חייבת להכיל לפחות 6 תווים');
+      return;
+    }
+
+    setIsLoading(true);
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+
+    try {
+      console.log('🔥 Attempting to create user with email:', email);
+      const userCredential = await auth().createUserWithEmailAndPassword(email, password);
+      console.log('🔥 User created successfully:', userCredential.user?.email);
+      
+      // Update the user's display name
+      if (userCredential.user) {
+        await userCredential.user.updateProfile({
+          displayName: name
+        });
+        console.log('🔥 User profile updated with name:', name);
+      }
+      
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      router.push("/profile-creation");
+    } catch (error: any) {
+      console.error('🔥 Registration error:', error);
+      
+      let errorMessage = 'שגיאה בהרשמה';
+      
+      if (error.code === 'auth/email-already-in-use') {
+        errorMessage = 'כתובת אימייל זו כבר בשימוש. אנא השתמש בכתובת אחרת או התחבר.';
+      } else if (error.code === 'auth/invalid-email') {
+        errorMessage = 'כתובת אימייל לא תקינה.';
+      } else if (error.code === 'auth/weak-password') {
+        errorMessage = 'הסיסמה חלשה מדי. אנא בחר סיסמה חזקה יותר.';
+      } else if (error.code === 'auth/network-request-failed') {
+        errorMessage = 'בעיית רשת. אנא בדוק את החיבור לאינטרנט.';
+      }
+      
+      Alert.alert('שגיאה', errorMessage);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -64,6 +125,7 @@ export function RegisterForm({
             textAlign="right"
             onFocus={() => setNameFocused(true)}
             onBlur={() => setNameFocused(false)}
+            editable={!isLoading}
           />
         </View>
       </View>
@@ -86,6 +148,7 @@ export function RegisterForm({
             textAlign="right"
             onFocus={() => setEmailFocused(true)}
             onBlur={() => setEmailFocused(false)}
+            editable={!isLoading}
           />
         </View>
       </View>
@@ -107,11 +170,13 @@ export function RegisterForm({
             textAlign="right"
             onFocus={() => setPasswordFocused(true)}
             onBlur={() => setPasswordFocused(false)}
+            editable={!isLoading}
           />
           <TouchableOpacity 
             onPress={togglePasswordVisibility} 
             style={styles.eyeIcon}
             activeOpacity={0.7}
+            disabled={isLoading}
           >
             <Ionicons 
               name={showPassword ? "eye-off-outline" : "eye-outline"} 
@@ -123,11 +188,19 @@ export function RegisterForm({
       </View>
 
       <TouchableOpacity 
-        style={[styles.button, { backgroundColor: primaryColor }]}
+        style={[
+          styles.button, 
+          { backgroundColor: isLoading ? Colors.light.tabIconDefault : primaryColor }
+        ]}
         onPress={handleRegister}
         activeOpacity={0.8}
+        disabled={isLoading}
       >
-        <Text style={styles.buttonText}>צור/י חשבון</Text>
+        {isLoading ? (
+          <ActivityIndicator size="small" color="white" />
+        ) : (
+          <Text style={styles.buttonText}>צור/י חשבון</Text>
+        )}
       </TouchableOpacity>
     </View>
   );

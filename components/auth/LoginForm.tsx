@@ -1,9 +1,10 @@
+import { auth } from "@/config/firebase";
 import { Colors } from "@/constants/Colors";
 import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from 'expo-haptics';
 import { useRouter } from "expo-router";
 import React, { useState } from "react";
-import { StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
+import { ActivityIndicator, Alert, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
 
 interface LoginFormProps {
   email: string;
@@ -17,6 +18,7 @@ export function LoginForm({ email, setEmail, password, setPassword, onForgotPass
   const [showPassword, setShowPassword] = useState(false);
   const [emailFocused, setEmailFocused] = useState(false);
   const [passwordFocused, setPasswordFocused] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
   const router = useRouter();
   
   const primaryColor = Colors.light.primary;
@@ -30,11 +32,54 @@ export function LoginForm({ email, setEmail, password, setPassword, onForgotPass
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
   };
 
-  const handleLogin = () => {
-    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    // In a real app, we would authenticate with a backend
-    alert("התחברות הצליחה!\nברוכים השבים ל-CycleConnect!");
-    router.replace("/(tabs)");
+  const handleLogin = async () => {
+    if (!email || !password) {
+      Alert.alert('שגיאה', 'אנא מלא את כל השדות הנדרשים');
+      return;
+    }
+
+    if (!email.includes('@')) {
+      Alert.alert('שגיאה', 'אנא הכנס כתובת אימייל תקינה');
+      return;
+    }
+
+    try {
+      setIsLoading(true);
+      await auth().signInWithEmailAndPassword(email, password);
+      router.replace('/(tabs)');
+    } catch (error: any) {
+      let errorMessage = 'שגיאה בהתחברות';
+      
+      switch (error.code) {
+        case 'auth/user-not-found':
+          errorMessage = 'משתמש לא נמצא במערכת. אנא בדוק את כתובת האימייל או הירשם כמשתמש חדש';
+          break;
+        case 'auth/wrong-password':
+          errorMessage = 'פרטי ההתחברות שהוזנו שגויים, אנא נסה שוב';
+          break;
+        case 'auth/invalid-email':
+          errorMessage = 'כתובת האימייל אינה תקינה';
+          break;
+        case 'auth/user-disabled':
+          errorMessage = 'החשבון הזה חסום. אנא פנה לתמיכה';
+          break;
+        case 'auth/too-many-requests':
+          errorMessage = 'יותר מדי ניסיונות התחברות. אנא המתן מספר דקות ונסה שוב';
+          break;
+        case 'auth/network-request-failed':
+          errorMessage = 'בעיית רשת. אנא בדוק את החיבור לאינטרנט ונסה שוב';
+          break;
+        case 'auth/invalid-credential':
+          errorMessage = 'פרטי ההתחברות שהוזנו שגויים, אנא נסה שוב';
+          break;
+        default:
+          errorMessage = 'אירעה שגיאה בהתחברות. אנא נסה שוב מאוחר יותר';
+      }
+      
+      Alert.alert('שגיאה בהתחברות', errorMessage);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -57,6 +102,7 @@ export function LoginForm({ email, setEmail, password, setPassword, onForgotPass
             textAlign="right"
             onFocus={() => setEmailFocused(true)}
             onBlur={() => setEmailFocused(false)}
+            editable={!isLoading}
           />
         </View>
       </View>
@@ -78,11 +124,13 @@ export function LoginForm({ email, setEmail, password, setPassword, onForgotPass
             textAlign="right"
             onFocus={() => setPasswordFocused(true)}
             onBlur={() => setPasswordFocused(false)}
+            editable={!isLoading}
           />
           <TouchableOpacity 
             onPress={togglePasswordVisibility} 
             style={styles.eyeIcon}
             activeOpacity={0.7}
+            disabled={isLoading}
           >
             <Ionicons 
               name={showPassword ? "eye-off-outline" : "eye-outline"} 
@@ -103,17 +151,26 @@ export function LoginForm({ email, setEmail, password, setPassword, onForgotPass
             }
           }}
           activeOpacity={0.7}
+          disabled={isLoading}
         >
           <Text style={[styles.forgotPasswordText, { color: primaryColor }]}>שכחת סיסמה?</Text>
         </TouchableOpacity>
       </View>
 
       <TouchableOpacity 
-        style={[styles.button, { backgroundColor: primaryColor }]}
+        style={[
+          styles.button, 
+          { backgroundColor: isLoading ? Colors.light.tabIconDefault : primaryColor }
+        ]}
         onPress={handleLogin}
         activeOpacity={0.8}
+        disabled={isLoading}
       >
-        <Text style={styles.buttonText}>התחבר/י</Text>
+        {isLoading ? (
+          <ActivityIndicator size="small" color="white" />
+        ) : (
+          <Text style={styles.buttonText}>התחבר/י</Text>
+        )}
       </TouchableOpacity>
     </View>
   );

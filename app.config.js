@@ -9,6 +9,7 @@ export default {
     icon: "./assets/images/icon.png",
     scheme: "cycleconnect",
     userInterfaceStyle: "light",
+    newArchEnabled: false,
     splash: {
       image: "./assets/images/splash-icon.png",
       resizeMode: "contain",
@@ -19,17 +20,31 @@ export default {
     ],
     ios: {
       supportsTablet: true,
-      bundleIdentifier: "com.cycleconnect.app",
+      bundleIdentifier: "com.davidzal1992.CycleConnect",
+      googleServicesFile: "./GoogleService-Info.plist",
+      language: "objc",
       associatedDomains: [
         "applinks:dev-lwik063shdh4q48o.us.auth0.com"
-      ]
+      ],
+      infoPlist: {
+        NSAppTransportSecurity: {
+          NSAllowsArbitraryLoads: true
+        },
+        NSLocationWhenInUseUsageDescription: "CycleConnect uses your location to show nearby cycling routes and meeting points.",
+        NSLocationAlwaysAndWhenInUseUsageDescription: "CycleConnect uses your location to show nearby cycling routes and meeting points."
+      }
     },
     android: {
       adaptiveIcon: {
         foregroundImage: "./assets/images/adaptive-icon.png",
         backgroundColor: "#ffffff"
       },
-      package: "com.cycleconnect.app",
+      package: "com.davidzal1992.CycleConnect",
+      edgeToEdgeEnabled: true,
+      permissions: [
+        "ACCESS_FINE_LOCATION",
+        "ACCESS_COARSE_LOCATION"
+      ],
       intentFilters: [
         {
           action: "VIEW",
@@ -49,12 +64,27 @@ export default {
       favicon: "./assets/images/favicon.png"
     },
     plugins: [
-      "expo-router"
+      "@react-native-google-signin/google-signin",
+      "expo-router",
+      "expo-dev-client",
+      [
+        "expo-splash-screen",
+        {
+          image: "./assets/images/splash-icon.png",
+          imageWidth: 200,
+          resizeMode: "contain",
+          backgroundColor: "#ffffff"
+        }
+      ]
     ],
     experiments: {
       typedRoutes: true
     },
-    schemes: ["cycleconnect", "exp"],
+    schemes: [
+      "cycleconnect", 
+      "exp", 
+      "com.googleusercontent.apps.696545960135-crhdd2fi9ngj1j4jp5af0vrao7jspenv"
+    ],
     extra: {
       proxyUrl: process.env.NGROK_URL ? `${process.env.NGROK_URL}/places-proxy/autocomplete` : 'http://172.28.129.120:3000/places-proxy/autocomplete',
       eas: {
