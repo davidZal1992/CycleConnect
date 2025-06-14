@@ -89,9 +89,18 @@ export function ProfileCreation({ userEmail = '' }: ProfileCreationProps) {
   }, []);
 
   const handleInputChange = (field: string, value: string) => {
+    // Apply character limits
+    let limitedValue = value;
+    
+    if (field === 'firstName' || field === 'lastName') {
+      limitedValue = value.slice(0, 10); // Max 10 characters
+    } else if (field === 'bio') {
+      limitedValue = value.slice(0, 30); // Max 30 characters
+    }
+    
     setFormData(prev => ({
       ...prev,
-      [field]: value
+      [field]: limitedValue
     }));
   };
 
@@ -197,8 +206,18 @@ export function ProfileCreation({ userEmail = '' }: ProfileCreationProps) {
       return false;
     }
     
+    if (formData.firstName.trim().length > 10) {
+      Alert.alert('שגיאה', 'שם פרטי לא יכול להכיל יותר מ-10 תווים');
+      return false;
+    }
+    
     if (!formData.lastName.trim()) {
       Alert.alert('שגיאה', 'אנא הזן שם משפחה');
+      return false;
+    }
+
+    if (formData.lastName.trim().length > 10) {
+      Alert.alert('שגיאה', 'שם משפחה לא יכול להכיל יותר מ-10 תווים');
       return false;
     }
 
@@ -207,9 +226,17 @@ export function ProfileCreation({ userEmail = '' }: ProfileCreationProps) {
       return false;
     }
 
+    // Enhanced phone validation for exact format 05XXXXXXXX
     const phoneRegex = /^05\d{8}$/;
-    if (!phoneRegex.test(formData.phone.replace(/[-\s]/g, ''))) {
-      Alert.alert('שגיאה', 'אנא הזן מספר טלפון תקין (05xxxxxxxx)');
+    const cleanPhone = formData.phone.replace(/[-\s]/g, '');
+    if (!phoneRegex.test(cleanPhone)) {
+      Alert.alert('שגיאה', 'אנא הזן מספר טלפון תקין בפורמט 05XXXXXXXX (10 ספרות)');
+      return false;
+    }
+
+    // Bio validation - max 30 characters
+    if (formData.bio.trim().length > 30) {
+      Alert.alert('שגיאה', 'התיאור לא יכול להכיל יותר מ-30 תווים');
       return false;
     }
 
@@ -323,13 +350,13 @@ export function ProfileCreation({ userEmail = '' }: ProfileCreationProps) {
                   <View style={styles.inputContainer}>
                     <View style={styles.labelContainer}>
                       <Ionicons name="person" size={16} color="#666" />
-                      <ThemedText style={styles.label}>שם פרטי</ThemedText>
+                      <ThemedText style={styles.label}>שם משפחה</ThemedText>
                     </View>
                     <TextInput
                       style={styles.input}
-                      value={formData.firstName}
-                      onChangeText={(value) => handleInputChange('firstName', value)}
-                      placeholder="הכנס שם פרטי"
+                      value={formData.lastName}
+                      onChangeText={(value) => handleInputChange('lastName', value)}
+                      placeholder="הכנס שם משפחה"
                       placeholderTextColor="#999"
                       textAlign="right"
                     />
@@ -338,13 +365,13 @@ export function ProfileCreation({ userEmail = '' }: ProfileCreationProps) {
                   <View style={styles.inputContainer}>
                     <View style={styles.labelContainer}>
                       <Ionicons name="person" size={16} color="#666" />
-                      <ThemedText style={styles.label}>שם משפחה</ThemedText>
+                      <ThemedText style={styles.label}>שם פרטי</ThemedText>
                     </View>
                     <TextInput
                       style={styles.input}
-                      value={formData.lastName}
-                      onChangeText={(value) => handleInputChange('lastName', value)}
-                      placeholder="הכנס שם משפחה"
+                      value={formData.firstName}
+                      onChangeText={(value) => handleInputChange('firstName', value)}
+                      placeholder="הכנס שם פרטי"
                       placeholderTextColor="#999"
                       textAlign="right"
                     />
@@ -361,7 +388,7 @@ export function ProfileCreation({ userEmail = '' }: ProfileCreationProps) {
                     style={styles.input}
                     value={formData.phone}
                     onChangeText={(value) => handleInputChange('phone', value)}
-                    placeholder="050-123-4567"
+                    placeholder="0541234567"
                     placeholderTextColor="#999"
                     keyboardType="phone-pad"
                     textAlign="right"
@@ -512,6 +539,9 @@ export function ProfileCreation({ userEmail = '' }: ProfileCreationProps) {
                     textAlign="right"
                     textAlignVertical="top"
                   />
+                  <ThemedText style={styles.characterCounter}>
+                    {formData.bio.length}/30 תווים
+                  </ThemedText>
                 </View>
 
                 {/* Action Buttons */}
@@ -772,5 +802,11 @@ const styles = StyleSheet.create({
     color: '#6B7280',
     textAlign: 'right',
     marginTop: 2,
+  },
+  characterCounter: {
+    fontSize: 12,
+    color: '#6B7280',
+    textAlign: 'right',
+    marginTop: 4,
   },
 }); 

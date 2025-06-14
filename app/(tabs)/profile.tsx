@@ -4,14 +4,87 @@ import { Colors } from '@/constants/Colors';
 import { useAuth } from '@/contexts/AuthContext';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import { router } from 'expo-router';
-import { useState } from 'react';
-import { Alert, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
+import { router, useFocusEffect } from 'expo-router';
+import { useCallback, useState } from 'react';
+import { ActivityIndicator, Alert, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+// API endpoint for profile
+const API_BASE_URL = 'http://localhost:8080/api/v1/profiles';
+
+interface UserProfile {
+  userId: string;
+  fullName: string;
+  phoneNumber: string;
+  email: string;
+  profileImage?: string;
+  bikeModel?: string;
+  location?: string;
+  bio?: string;
+}
+
 export default function ProfileScreen() {
-  const { signOut } = useAuth();
+  const { signOut, user } = useAuth();
   const [isLoggingOut, setIsLoggingOut] = useState(false);
+  const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
+  const [isLoadingProfile, setIsLoadingProfile] = useState(true);
+
+  // Fetch user profile from backend
+  const fetchUserProfile = useCallback(async () => {
+    if (!user?.uid) {
+      setIsLoadingProfile(false);
+      return;
+    }
+
+    setIsLoadingProfile(true);
+    try {
+      console.log('🔥 Profile - Fetching user profile for userId:', user.uid);
+      const response = await fetch(`${API_BASE_URL}/${user.uid}`);
+      
+      if (response.ok) {
+        const profile = await response.json();
+        console.log('🔥 Profile - User profile fetched successfully:', profile);
+        setUserProfile(profile);
+      } else {
+        console.log('🔥 Profile - No profile found for user, using Firebase displayName');
+        // Fallback to Firebase displayName if no profile exists
+        if (user.displayName) {
+          setUserProfile({
+            userId: user.uid,
+            fullName: user.displayName,
+            phoneNumber: '',
+            email: user.email || '',
+          });
+        }
+      }
+    } catch (error) {
+      console.error('🔥 Profile - Error fetching user profile:', error);
+      // Fallback to Firebase displayName on error
+      if (user.displayName) {
+        setUserProfile({
+          userId: user.uid,
+          fullName: user.displayName,
+          phoneNumber: '',
+          email: user.email || '',
+        });
+      }
+    } finally {
+      setIsLoadingProfile(false);
+    }
+  }, [user]);
+
+  // Refresh profile data when screen comes into focus
+  useFocusEffect(
+    useCallback(() => {
+      fetchUserProfile();
+    }, [fetchUserProfile])
+  );
+
+  // Get display name (full name or fallback)
+  const getDisplayName = (fullName?: string): string => {
+    if (!fullName) return 'רוכב חדש';
+    return fullName.trim() || 'רוכב חדש';
+  };
 
   const handleLogout = () => {
     if (isLoggingOut) return; // Prevent multiple clicks
@@ -52,6 +125,18 @@ export default function ProfileScreen() {
     );
   };
 
+  // Show loading spinner while profile is loading
+  if (isLoadingProfile) {
+    return (
+      <SafeAreaView style={{ flex: 1 }} edges={['bottom']}>
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color={Colors.light.primary} />
+          <ThemedText style={styles.loadingText}>טוען פרופיל...</ThemedText>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
   return (
     <SafeAreaView style={{ flex: 1 }} edges={['bottom']}>
       <ScrollView style={styles.container}>
@@ -70,7 +155,7 @@ export default function ProfileScreen() {
                 </View>
               </View>
               
-              <ThemedText style={styles.username}>רוכב חדש</ThemedText>
+              <ThemedText style={styles.username}>{getDisplayName(userProfile?.fullName)}</ThemedText>
               
               <View style={styles.statsContainer}>
                 <View style={styles.statItem}>
@@ -98,7 +183,7 @@ export default function ProfileScreen() {
         
         {/* Action Buttons */}
         <View style={styles.actionsContainer}>
-          <TouchableOpacity style={styles.actionButton}>
+          <TouchableOpacity style={styles.actionButton} onPress={() => router.push('/profile-edit')}>
             <Ionicons name="create-outline" size={20} color={Colors.light.text} />
             <ThemedText style={styles.actionButtonText}>ערוך פרופיל</ThemedText>
           </TouchableOpacity>
@@ -113,7 +198,7 @@ export default function ProfileScreen() {
         <ThemedView style={styles.sectionContainer}>
           <ThemedText type="subtitle" style={styles.sectionTitle}>קצת עלי</ThemedText>
           <ThemedText style={styles.aboutMeText}>
-            ברוכים הבאים לפרופיל שלי! אני רוכב חדש באפליקציה, מחפש חברים לרכיבות משותפות באזור.
+            {userProfile?.bio || 'ברוכים הבאים לפרופיל שלי! אני רוכב חדש באפליקציה, מחפש חברים לרכיבות משותפות באזור.'}
           </ThemedText>
         </ThemedView>
         
@@ -124,11 +209,8 @@ export default function ProfileScreen() {
           <View style={styles.emptyStateContainer}>
             <Ionicons name="bicycle" size={40} color={Colors.light.tabIconDefault} />
             <ThemedText style={styles.emptyStateText}>
-              לא הוספת עדיין אופניים לפרופיל
+              {userProfile?.bikeModel || 'לא הוספת עדיין אופניים לפרופיל'}
             </ThemedText>
-            <TouchableOpacity style={styles.emptyStateButton}>
-              <ThemedText style={styles.emptyStateButtonText}>הוסף אופניים</ThemedText>
-            </TouchableOpacity>
           </View>
         </ThemedView>
         
@@ -259,16 +341,6 @@ const styles = StyleSheet.create({
     opacity: 0.7,
     textAlign: 'center',
   },
-  emptyStateButton: {
-    backgroundColor: Colors.light.primary,
-    paddingVertical: 8,
-    paddingHorizontal: 16,
-    borderRadius: 8,
-  },
-  emptyStateButtonText: {
-    color: 'white',
-    fontWeight: '500',
-  },
   logoutButton: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -284,5 +356,15 @@ const styles = StyleSheet.create({
     color: '#E74C3C',
     fontWeight: '600',
     marginLeft: 8,
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  loadingText: {
+    marginTop: 16,
+    fontSize: 16,
+    fontWeight: 'bold',
   },
 }); 

@@ -72,7 +72,14 @@ export const signInWithEmail = async (email: string, password: string) => {
     if (!userCredential.user) {
       throw new Error('שגיאה בהתחברות. לא התקבל מידע על המשתמש.');
     }
-    return userCredential.user;
+    
+    // Check if user has a profile
+    const hasProfile = await checkUserProfile(userCredential.user.uid);
+    
+    return {
+      user: userCredential.user,
+      hasProfile
+    };
   } catch (error: any) {
     console.error('🔥 Error signing in with email:', error);
     
@@ -94,13 +101,18 @@ export const signInWithEmail = async (email: string, password: string) => {
   }
 };
 
-export const signUpWithEmail = async (email: string, password: string, displayName: string) => {
+export const signUpWithEmail = async (email: string, password: string, displayName?: string) => {
   try {
     const userCredential = await firebase.auth().createUserWithEmailAndPassword(email, password);
     if (!userCredential.user) {
       throw new Error('שגיאה בהרשמה. לא התקבל מידע על המשתמש.');
     }
-    await userCredential.user?.updateProfile({ displayName });
+    
+    // Only update profile if displayName is provided
+    if (displayName) {
+      await userCredential.user?.updateProfile({ displayName });
+    }
+    
     return userCredential.user;
   } catch (error: any) {
     console.error('🔥 Error signing up with email:', error);

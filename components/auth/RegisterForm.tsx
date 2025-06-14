@@ -1,9 +1,9 @@
-import { auth } from "@/config/firebase";
+import { signUpWithEmail } from "@/config/firebase";
 import { Colors } from "@/constants/Colors";
 import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from 'expo-haptics';
 import { useRouter } from "expo-router";
-import React, { useState } from "react";
+import { useState } from "react";
 import { ActivityIndicator, Alert, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
 
 interface RegisterFormProps {
@@ -11,8 +11,8 @@ interface RegisterFormProps {
   setEmail: (email: string) => void;
   password: string;
   setPassword: (password: string) => void;
-  name: string;
-  setName: (name: string) => void;
+  confirmPassword: string;
+  setConfirmPassword: (confirmPassword: string) => void;
 }
 
 export function RegisterForm({ 
@@ -20,13 +20,14 @@ export function RegisterForm({
   setEmail, 
   password, 
   setPassword, 
-  name, 
-  setName 
+  confirmPassword,
+  setConfirmPassword
 }: RegisterFormProps) {
   const [showPassword, setShowPassword] = useState(false);
-  const [nameFocused, setNameFocused] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [emailFocused, setEmailFocused] = useState(false);
   const [passwordFocused, setPasswordFocused] = useState(false);
+  const [confirmPasswordFocused, setConfirmPasswordFocused] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const router = useRouter();
   
@@ -41,20 +42,22 @@ export function RegisterForm({
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
   };
 
+  const toggleConfirmPasswordVisibility = () => {
+    setShowConfirmPassword(!showConfirmPassword);
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+  };
+
   const handleRegister = async () => {
     // Validate inputs
-    if (!name.trim()) {
-      Alert.alert('שגיאה', 'אנא הכנס שם מלא');
-      return;
-    }
-
     if (!email.trim()) {
       Alert.alert('שגיאה', 'אנא הכנס כתובת אימייל');
       return;
     }
 
-    if (!email.includes('@')) {
-      Alert.alert('שגיאה', 'אנא הכנס כתובת אימייל תקינה');
+    // Enhanced email format validation
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email.trim())) {
+      Alert.alert('שגיאה', 'אנא הכנס כתובת אימייל תקינה (לדוגמה: user@example.com)');
       return;
     }
 
@@ -68,40 +71,29 @@ export function RegisterForm({
       return;
     }
 
+    if (!confirmPassword.trim()) {
+      Alert.alert('שגיאה', 'אנא הכנס אישור סיסמה');
+      return;
+    }
+
+    if (password !== confirmPassword) {
+      Alert.alert('שגיאה', 'הסיסמאות אינן תואמות. אנא בדוק שהזנת את אותה סיסמה בשני השדות');
+      return;
+    }
+
     setIsLoading(true);
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
 
     try {
-      console.log('🔥 Attempting to create user with email:', email);
-      const userCredential = await auth().createUserWithEmailAndPassword(email, password);
-      console.log('🔥 User created successfully:', userCredential.user?.email);
-      
-      // Update the user's display name
-      if (userCredential.user) {
-        await userCredential.user.updateProfile({
-          displayName: name
-        });
-        console.log('🔥 User profile updated with name:', name);
-      }
+      console.log('🔥 RegisterForm - Attempting to create user with email:', email);
+      await signUpWithEmail(email, password);
+      console.log('🔥 RegisterForm - User created successfully');
       
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       router.push("/profile-creation");
     } catch (error: any) {
-      console.error('🔥 Registration error:', error);
-      
-      let errorMessage = 'שגיאה בהרשמה';
-      
-      if (error.code === 'auth/email-already-in-use') {
-        errorMessage = 'כתובת אימייל זו כבר בשימוש. אנא השתמש בכתובת אחרת או התחבר.';
-      } else if (error.code === 'auth/invalid-email') {
-        errorMessage = 'כתובת אימייל לא תקינה.';
-      } else if (error.code === 'auth/weak-password') {
-        errorMessage = 'הסיסמה חלשה מדי. אנא בחר סיסמה חזקה יותר.';
-      } else if (error.code === 'auth/network-request-failed') {
-        errorMessage = 'בעיית רשת. אנא בדוק את החיבור לאינטרנט.';
-      }
-      
-      Alert.alert('שגיאה', errorMessage);
+      console.error('🔥 RegisterForm - Registration error:', error);
+      Alert.alert('שגיאה', error.message || 'שגיאה בהרשמה. אנא נסה שוב מאוחר יותר');
     } finally {
       setIsLoading(false);
     }
@@ -109,27 +101,6 @@ export function RegisterForm({
 
   return (
     <View style={styles.formContainer}>
-      <View style={styles.formGroup}>
-        <Text style={styles.label}>שם מלא</Text>
-        <View style={[
-          styles.inputContainer,
-          nameFocused && { borderColor: primaryColor, borderWidth: 2 }
-        ]}>
-          <Ionicons name="person-outline" size={20} color={placeholderColor} style={styles.inputIcon} />
-          <TextInput
-            placeholder="שם מלא"
-            value={name}
-            onChangeText={setName}
-            style={[styles.input, { color: textColor }]}
-            placeholderTextColor={placeholderColor}
-            textAlign="right"
-            onFocus={() => setNameFocused(true)}
-            onBlur={() => setNameFocused(false)}
-            editable={!isLoading}
-          />
-        </View>
-      </View>
-
       <View style={styles.formGroup}>
         <Text style={styles.label}>אימייל</Text>
         <View style={[
@@ -180,6 +151,40 @@ export function RegisterForm({
           >
             <Ionicons 
               name={showPassword ? "eye-off-outline" : "eye-outline"} 
+              size={20} 
+              color={placeholderColor} 
+            />
+          </TouchableOpacity>
+        </View>
+      </View>
+
+      <View style={styles.formGroup}>
+        <Text style={styles.label}>אישור סיסמה</Text>
+        <View style={[
+          styles.inputContainer,
+          confirmPasswordFocused && { borderColor: primaryColor, borderWidth: 2 }
+        ]}>
+          <Ionicons name="lock-closed-outline" size={20} color={placeholderColor} style={styles.inputIcon} />
+          <TextInput
+            placeholder="אישור סיסמה"
+            value={confirmPassword}
+            onChangeText={setConfirmPassword}
+            secureTextEntry={!showConfirmPassword}
+            style={[styles.input, { color: textColor }]}
+            placeholderTextColor={placeholderColor}
+            textAlign="right"
+            onFocus={() => setConfirmPasswordFocused(true)}
+            onBlur={() => setConfirmPasswordFocused(false)}
+            editable={!isLoading}
+          />
+          <TouchableOpacity 
+            onPress={toggleConfirmPasswordVisibility} 
+            style={styles.eyeIcon}
+            activeOpacity={0.7}
+            disabled={isLoading}
+          >
+            <Ionicons 
+              name={showConfirmPassword ? "eye-off-outline" : "eye-outline"} 
               size={20} 
               color={placeholderColor} 
             />

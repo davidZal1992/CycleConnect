@@ -1,9 +1,9 @@
-import { auth } from "@/config/firebase";
+import { signInWithEmail } from "@/config/firebase";
 import { Colors } from "@/constants/Colors";
 import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from 'expo-haptics';
 import { useRouter } from "expo-router";
-import React, { useState } from "react";
+import { useState } from "react";
 import { ActivityIndicator, Alert, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
 
 interface LoginFormProps {
@@ -45,38 +45,22 @@ export function LoginForm({ email, setEmail, password, setPassword, onForgotPass
 
     try {
       setIsLoading(true);
-      await auth().signInWithEmailAndPassword(email, password);
-      router.replace('/(tabs)');
-    } catch (error: any) {
-      let errorMessage = 'שגיאה בהתחברות';
+      console.log('🔥 LoginForm - Attempting to sign in with email:', email);
       
-      switch (error.code) {
-        case 'auth/user-not-found':
-          errorMessage = 'משתמש לא נמצא במערכת. אנא בדוק את כתובת האימייל או הירשם כמשתמש חדש';
-          break;
-        case 'auth/wrong-password':
-          errorMessage = 'פרטי ההתחברות שהוזנו שגויים, אנא נסה שוב';
-          break;
-        case 'auth/invalid-email':
-          errorMessage = 'כתובת האימייל אינה תקינה';
-          break;
-        case 'auth/user-disabled':
-          errorMessage = 'החשבון הזה חסום. אנא פנה לתמיכה';
-          break;
-        case 'auth/too-many-requests':
-          errorMessage = 'יותר מדי ניסיונות התחברות. אנא המתן מספר דקות ונסה שוב';
-          break;
-        case 'auth/network-request-failed':
-          errorMessage = 'בעיית רשת. אנא בדוק את החיבור לאינטרנט ונסה שוב';
-          break;
-        case 'auth/invalid-credential':
-          errorMessage = 'פרטי ההתחברות שהוזנו שגויים, אנא נסה שוב';
-          break;
-        default:
-          errorMessage = 'אירעה שגיאה בהתחברות. אנא נסה שוב מאוחר יותר';
+      const result = await signInWithEmail(email, password);
+      console.log('🔥 LoginForm - Sign in successful, user has profile:', result.hasProfile);
+      
+      if (result.hasProfile) {
+        console.log('🔥 LoginForm - Redirecting to tabs');
+        router.replace('/(tabs)');
+      } else {
+        console.log('🔥 LoginForm - No profile found, redirecting to profile creation');
+        router.replace('/profile-creation');
       }
       
-      Alert.alert('שגיאה בהתחברות', errorMessage);
+    } catch (error: any) {
+      console.error('🔥 LoginForm - Login error:', error);
+      Alert.alert('שגיאה בהתחברות', error.message || 'אירעה שגיאה בהתחברות. אנא נסה שוב מאוחר יותר');
     } finally {
       setIsLoading(false);
     }

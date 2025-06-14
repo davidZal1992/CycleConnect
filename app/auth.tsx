@@ -1,19 +1,19 @@
 import { ThemedText } from '@/components/ThemedText';
-import { signInWithApple, signInWithEmail, signUpWithEmail } from '@/config/firebase';
+import { appleAuth, signInWithEmail, signUpWithEmail } from '@/config/firebase';
 import { Colors } from '@/constants/Colors';
 import { useAuth } from '@/contexts/AuthContext';
 import { Ionicons } from '@expo/vector-icons';
 import { Stack, useRouter } from 'expo-router';
-import React, { useState } from 'react';
+import { useState } from 'react';
 import {
-    ActivityIndicator,
-    Alert,
-    KeyboardAvoidingView,
-    Platform,
-    StyleSheet,
-    TextInput,
-    TouchableOpacity,
-    View
+  ActivityIndicator,
+  Alert,
+  KeyboardAvoidingView,
+  Platform,
+  StyleSheet,
+  TextInput,
+  TouchableOpacity,
+  View
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -41,10 +41,15 @@ export default function AuthScreen() {
     try {
       if (isSignUp) {
         await signUpWithEmail(email, password, displayName);
+        router.replace('/profile-creation');
       } else {
-        await signInWithEmail(email, password);
+        const result = await signInWithEmail(email, password);
+        if (result.hasProfile) {
+          router.replace('/(tabs)');
+        } else {
+          router.replace('/profile-creation');
+        }
       }
-      router.replace('/');
     } catch (error: any) {
       Alert.alert('שגיאה', error.message);
     } finally {
@@ -72,7 +77,7 @@ export default function AuthScreen() {
 
     setIsLoading(true);
     try {
-      await signInWithApple();
+      await appleAuth();
       router.replace('/');
     } catch (error: any) {
       Alert.alert('שגיאה', error.message);

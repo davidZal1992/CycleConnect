@@ -6,8 +6,8 @@ type User = firebase.User | null;
 
 interface AuthContextType {
   user: User;
-  signInWithEmail: (email: string, password: string) => Promise<void>;
-  signUpWithEmail: (email: string, password: string, displayName: string) => Promise<void>;
+  signInWithEmail: (email: string, password: string) => Promise<{ hasProfile: boolean }>;
+  signUpWithEmail: (email: string, password: string, displayName?: string) => Promise<void>;
   signInWithGoogle: () => Promise<void>;
   signOut: () => Promise<void>;
   isLoading: boolean;
@@ -15,7 +15,7 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType>({
   user: null,
-  signInWithEmail: async () => {},
+  signInWithEmail: async () => ({ hasProfile: false }),
   signUpWithEmail: async () => {},
   signInWithGoogle: async () => {},
   signOut: async () => {},
@@ -49,14 +49,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const handleSignInWithEmail = async (email: string, password: string) => {
     try {
-      await signInWithEmail(email, password);
+      const result = await signInWithEmail(email, password);
+      return { hasProfile: result.hasProfile };
     } catch (error) {
       console.error('🔥 Error signing in with email:', error);
       throw error;
     }
   };
 
-  const handleSignUpWithEmail = async (email: string, password: string, displayName: string) => {
+  const handleSignUpWithEmail = async (email: string, password: string, displayName?: string) => {
     try {
       await signUpWithEmail(email, password, displayName);
     } catch (error) {

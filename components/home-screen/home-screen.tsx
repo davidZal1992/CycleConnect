@@ -5,13 +5,11 @@ import { SearchBar } from '@/components/search-bar/search-bar';
 import { EmptyState } from '@/components/ui/empty-state';
 import { Colors } from '@/constants/Colors';
 import { useAuth } from '@/contexts/AuthContext';
-import { mockRides } from '@/data/mock-rides';
 import { useFilterState } from '@/hooks/use-filter-state';
 import { Ride } from '@/types/ride';
-import { getFilteredRides, hasActiveFilters } from '@/utils/filter-helpers';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { ActivityIndicator, FlatList, Image, StyleSheet, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -108,15 +106,11 @@ export function HomeScreen() {
   // Check if any API calls are still loading
   const isLoading = isLoadingProfile || isLoadingRides;
 
-  const filteredRides = useMemo(() => 
-    getFilteredRides(mockRides, filterState), 
-    [filterState]
-  );
+  // No rides available - empty array instead of mock data
+  const filteredRides: Ride[] = [];
 
-  const isFiltersActive = useMemo(() => 
-    hasActiveFilters(filterState), 
-    [filterState]
-  );
+  // No active filters since we're not using filter helpers
+  const isFiltersActive = false;
 
   const handleFilterPress = () => {
     setFilterModalVisible(true);
@@ -140,11 +134,9 @@ export function HomeScreen() {
 
   const renderEmptyState = () => (
     <EmptyState
-      title="לא נמצאו רכיבות"
-      description="נסה לשנות את הפילטרים או לחפש משהו אחר"
-      iconName="search-outline"
-      buttonText="נקה פילטרים"
-      onButtonPress={handleClearFilters}
+      title="אין רכיבות זמינות"
+      description="כרגע אין רכיבות פעילות באזור. השתמש בכפתור למעלה כדי להוסיף רכיבה חדשה!"
+      iconName="bicycle-outline"
     />
   );
 
@@ -186,14 +178,23 @@ export function HomeScreen() {
         hasActiveFilters={isFiltersActive}
       />
 
-      {/* Section Title */}
-      <View style={styles.sectionHeader}>
+      {/* Add Button - Always visible */}
+      <View style={[
+        styles.addButtonContainer,
+        { justifyContent: filteredRides.length > 0 ? 'flex-start' : 'center' }
+      ]}>
         <TouchableOpacity style={styles.addButton} onPress={handleAddRidePress}>
           <Ionicons name="add" size={20} color="#FFFFFF" />
           <ThemedText style={styles.addButtonText}>הוסף רכיבה</ThemedText>
         </TouchableOpacity>
-        <ThemedText style={styles.sectionTitle}>רכיבות קרובות</ThemedText>
       </View>
+
+      {/* Section Title - Only when there are rides */}
+      {filteredRides.length > 0 && (
+        <View style={styles.sectionTitleContainer}>
+          <ThemedText style={styles.sectionTitle}>רכיבות קרובות</ThemedText>
+        </View>
+      )}
     </View>
   );
 
@@ -303,16 +304,10 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     opacity: 0.95,
   },
-  sectionHeader: {
+  addButtonContainer: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
     paddingHorizontal: 16,
     marginBottom: 16,
-  },
-  sectionTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
   },
   addButton: {
     flexDirection: 'row',
@@ -327,6 +322,16 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 14,
     fontWeight: '600',
+  },
+  sectionTitleContainer: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    paddingHorizontal: 16,
+    marginBottom: 16,
+  },
+  sectionTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
   },
   emptyContent: {
     flexGrow: 1,

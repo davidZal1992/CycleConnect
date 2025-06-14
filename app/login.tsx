@@ -8,17 +8,17 @@ import { Colors } from "@/constants/Colors";
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { LinearGradient } from 'expo-linear-gradient';
-import React, { useState } from "react";
+import { useState } from "react";
 import { ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
 
 export default function LoginScreen() {
   const [activeTab, setActiveTab] = useState("login");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [name, setName] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
   const [recoveryStep, setRecoveryStep] = useState<'email' | 'sent' | 'reset'>('email');
   const [newPassword, setNewPassword] = useState("");
-  const [confirmPassword, setConfirmPassword] = useState("");
+  const [confirmNewPassword, setConfirmNewPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   
   const primaryColor = Colors.light.primary;
@@ -87,7 +87,7 @@ export default function LoginScreen() {
       return;
     }
 
-    if (newPassword !== confirmPassword) {
+    if (newPassword !== confirmNewPassword) {
       alert("הסיסמאות אינן תואמות");
       return;
     }
@@ -107,7 +107,7 @@ export default function LoginScreen() {
       setActiveTab("login");
       setRecoveryStep('email');
       setNewPassword("");
-      setConfirmPassword("");
+      setConfirmNewPassword("");
     } catch (error) {
       alert("אירעה שגיאה בשינוי הסיסמה. אנא נסה שוב מאוחר יותר.");
     } finally {
@@ -182,8 +182,8 @@ export default function LoginScreen() {
                   setEmail={setEmail}
                   password={password}
                   setPassword={setPassword}
-                  name={name}
-                  setName={setName}
+                  confirmPassword={confirmPassword}
+                  setConfirmPassword={setConfirmPassword}
                 />
               ) : (
                 // Password Recovery Tab
@@ -279,8 +279,8 @@ export default function LoginScreen() {
                           <Ionicons name="lock-closed-outline" size={20} color={placeholderColor} style={styles.inputIcon} />
                           <TextInput
                             placeholder="הכנס שוב את הסיסמה"
-                            value={confirmPassword}
-                            onChangeText={setConfirmPassword}
+                            value={confirmNewPassword}
+                            onChangeText={setConfirmNewPassword}
                             secureTextEntry={true}
                             style={[styles.input, { color: textColor }]}
                             placeholderTextColor={placeholderColor}

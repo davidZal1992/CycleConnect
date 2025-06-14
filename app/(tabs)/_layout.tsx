@@ -66,6 +66,13 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
+        name="messages"
+        options={{
+          title: 'מועדפים',
+          tabBarIcon: ({ color }) => <Ionicons name="heart" size={24} color={color} />,
+        }}
+      />
+      <Tabs.Screen
         name="index"
         options={{
           title: 'ראשי',
@@ -74,17 +81,17 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
-        name="messages"
-        options={{
-          title: 'מועדפים',
-          tabBarIcon: ({ color }) => <Ionicons name="heart" size={24} color={color} />,
-        }}
-      />
-      <Tabs.Screen
         name="profile"
         options={{
           title: 'פרופיל',
           tabBarIcon: ({ color }) => <Ionicons name="person" size={24} color={color} />,
+        }}
+      />
+      <Tabs.Screen
+        name="logout"
+        options={{
+          title: 'התנתק',
+          tabBarIcon: ({ color }) => <Ionicons name="log-out" size={24} color={color} />,
         }}
       />
     </Tabs>
