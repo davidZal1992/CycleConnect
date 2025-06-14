@@ -19,13 +19,20 @@ if (!firebase.apps.length) {
 // Connect to emulators in development
 if (__DEV__) {
   console.log('🔥 Connecting to Firebase emulators...');
-  firebase.auth().useEmulator('http://localhost:9099');
+  console.log('🔥 Auth emulator: http://localhost:9099');
+  
+  try {
+    firebase.auth().useEmulator('http://localhost:9099');
+    console.log('🔥 ✅ Auth emulator connected successfully');
+  } catch (error) {
+    console.error('🔥 ❌ Failed to connect to Auth emulator:', error);
+  }
 }
 
 console.log('🔥 Firebase initialized with web SDK');
 console.log('🔥 Firebase apps:', firebase.apps.length);
 
-// Export auth function
+// Export auth and storage functions
 export const auth = firebase.auth;
 
 // Configure Google Sign-In
@@ -33,8 +40,6 @@ GoogleSignin.configure({
   webClientId: '696545960135-crhdd2fi9ngj1j4jp5af0vrao7jspenv.apps.googleusercontent.com',
   iosClientId: '696545960135-crhdd2fi9ngj1j4jp5af0vrao7jspenv.apps.googleusercontent.com',
   offlineAccess: true,
-  // Use the Firebase Auth emulator in development
-  ...(__DEV__ ? { useEmulator: true } : {})
 });
 
 // Check if user has a profile

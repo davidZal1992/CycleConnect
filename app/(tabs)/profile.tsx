@@ -1,13 +1,15 @@
 import { ThemedText } from '@/components/ThemedText';
 import { ThemedView } from '@/components/ThemedView';
 import { Colors } from '@/constants/Colors';
+import { useAuth } from '@/contexts/AuthContext';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import { router } from 'expo-router';
 import { Alert, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 export default function ProfileScreen() {
+  const { signOut } = useAuth();
+
   const handleLogout = () => {
     Alert.alert(
       "התנתקות",
@@ -20,9 +22,16 @@ export default function ProfileScreen() {
         { 
           text: "התנתק", 
           style: "destructive",
-          onPress: () => {
-            // Navigate to the login screen
-            router.replace("/login");
+          onPress: async () => {
+            try {
+              // Sign out from Firebase
+              await signOut();
+              console.log('🔥 User signed out successfully');
+              // Navigation will be handled by the auth guard in index.tsx
+            } catch (error) {
+              console.error('🔥 Error signing out:', error);
+              Alert.alert('שגיאה', 'אירעה שגיאה בהתנתקות. אנא נסה שוב.');
+            }
           }
         }
       ]

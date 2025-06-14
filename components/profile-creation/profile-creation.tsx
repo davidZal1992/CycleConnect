@@ -1,11 +1,12 @@
 import { ThemedText } from '@/components/ThemedText';
+import { auth } from '@/config/firebase';
 import { Colors } from '@/constants/Colors';
 import { Ionicons } from '@expo/vector-icons';
 import axios from 'axios';
 import Constants from 'expo-constants';
 import * as ImagePicker from 'expo-image-picker';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -25,6 +26,12 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 // Get proxy URL from environment variables
 const PROXY_URL = Constants.expoConfig?.extra?.proxyUrl || 'http://localhost:3000/places-proxy/autocomplete';
 
+// Default profile picture URL
+const DEFAULT_PROFILE_IMAGE = 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=400&h=400&fit=crop&crop=face&auto=format&q=80';
+
+// API endpoint for profile creation
+const API_BASE_URL = 'http://localhost:8080/api/v1/profiles';
+
 // Define interface for search result items
 interface SearchResultItem {
   description: string;
@@ -41,11 +48,11 @@ export function ProfileCreation({ userEmail = '' }: ProfileCreationProps) {
   const router = useRouter();
   const params = useLocalSearchParams();
   
-  const email = (params.email as string) || userEmail;
-  const token = params.token as string;
-  
   // Refs
   const cityInputRef = useRef<TextInput>(null);
+  
+  // User data from Firebase Auth
+  const [currentUser, setCurrentUser] = useState<any>(null);
   
   const [formData, setFormData] = useState({
     firstName: '',
@@ -54,6 +61,7 @@ export function ProfileCreation({ userEmail = '' }: ProfileCreationProps) {
     dateOfBirth: new Date(),
     city: '',
     bio: '',
+    bikeModel: '',
     profileImage: null as string | null
   });
 
@@ -66,6 +74,19 @@ export function ProfileCreation({ userEmail = '' }: ProfileCreationProps) {
   const [citySearchResults, setCitySearchResults] = useState<SearchResultItem[]>([]);
   const [validCitySelected, setValidCitySelected] = useState(false);
   const [cityStatus, setCityStatus] = useState<'none' | 'loading' | 'error' | 'success'>('none');
+
+  // Get current user from Firebase Auth
+  useEffect(() => {
+    const user = auth().currentUser;
+    if (user) {
+      setCurrentUser(user);
+      console.log('🔥 Current user:', {
+        uid: user.uid,
+        email: user.email,
+        displayName: user.displayName
+      });
+    }
+  }, []);
 
   const handleInputChange = (field: string, value: string) => {
     setFormData(prev => ({
@@ -144,32 +165,29 @@ export function ProfileCreation({ userEmail = '' }: ProfileCreationProps) {
 
   const handleImageUpload = async () => {
     try {
-      const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
-      
-      if (permissionResult.granted === false) {
-        Alert.alert('הרשאה נדרשת', 'אנא אפשר גישה לגלריית התמונות');
-        return;
-      }
-
+      // Directly launch image picker without permission checks
       const result = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ImagePicker.MediaTypeOptions.Images,
         allowsEditing: true,
         aspect: [1, 1],
-        quality: 0.7,
+        quality: 0.5, // Reduced from 0.7 to 0.5 for smaller file size
+        base64: false,
       });
 
       if (!result.canceled && result.assets[0]) {
         const asset = result.assets[0];
         
-        if (asset.fileSize && asset.fileSize > 5 * 1024 * 1024) {
-          Alert.alert('קובץ גדול מדי', 'אנא בחר תמונה קטנה יותר (עד 5MB)');
+        // Reduced file size limit from 5MB to 2MB
+        if (asset.fileSize && asset.fileSize > 2 * 1024 * 1024) {
+          Alert.alert('קובץ גדול מדי', 'אנא בחר תמונה קטנה יותר (עד 2MB)');
           return;
         }
 
         setFormData(prev => ({ ...prev, profileImage: asset.uri }));
       }
     } catch (error) {
-      Alert.alert('שגיאה', 'לא ניתן לטעון תמונה');
+      console.error('Error in handleImageUpload:', error);
+      Alert.alert('שגיאה', 'לא ניתן לטעון תמונה. אנא נסה שוב.');
     }
   };
 
@@ -195,11 +213,6 @@ export function ProfileCreation({ userEmail = '' }: ProfileCreationProps) {
       return false;
     }
 
-    if (!formData.city.trim()) {
-      Alert.alert('שגיאה', 'אנא הזן עיר מגורים');
-      return false;
-    }
-
     return true;
   };
 
@@ -208,20 +221,60 @@ export function ProfileCreation({ userEmail = '' }: ProfileCreationProps) {
       return;
     }
 
+    if (!currentUser) {
+      Alert.alert('שגיאה', 'לא נמצא משתמש מחובר');
+      return;
+    }
+
     setIsLoading(true);
     
     try {
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 2000));
+      setIsLoading(true);
       
-      // Save the profile data
-      console.log('Profile saved:', formData);
+      // Use default image if no image selected, otherwise use the selected image URI
+      const profileImageUrl = formData.profileImage || 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=400&h=400&fit=crop&crop=face&auto=format&q=80';
+
+      // Prepare profile data according to ProfileDTO structure
+      const profileData = {
+        userId: currentUser.uid,
+        fullName: `${formData.firstName} ${formData.lastName}`.trim(),
+        phoneNumber: formData.phone.replace(/\D/g, ''), // Remove formatting
+        email: currentUser.email,
+        profileImage: profileImageUrl,
+        bikeModel: formData.bikeModel || null,
+        location: formData.city || null,
+        bio: formData.bio || null
+      };
+
+      console.log('🔥 Submitting profile data:', profileData);
+
+      // Submit to backend API
+      const response = await axios.post(API_BASE_URL, profileData, {
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+
+      console.log('🔥 Profile created successfully:', response.data);
       
-      // Navigate to the main app
-      router.replace('/(tabs)');
-    } catch (error) {
-      console.error('Error saving profile:', error);
-      Alert.alert('שגיאה', 'אירעה שגיאה בשמירת הפרופיל');
+      Alert.alert(
+        'הצלחה!', 
+        'הפרופיל נוצר בהצלחה',
+        [
+          {
+            text: 'המשך',
+            onPress: () => router.replace('/(tabs)')
+          }
+        ]
+      );
+      
+    } catch (error: any) {
+      console.error('🔥 Error creating profile:', error);
+      Alert.alert(
+        'שגיאה', 
+        'אירעה שגיאה ביצירת הפרופיל. אנא נסה שוב.',
+        [{ text: 'אישור' }]
+      );
     } finally {
       setIsLoading(false);
     }
@@ -388,8 +441,8 @@ export function ProfileCreation({ userEmail = '' }: ProfileCreationProps) {
                         />
                       )}
                     </View>
-                    
-                    {/* Dropdown of search results */}
+
+                    {/* Dropdown of search results - positioned directly under input */}
                     {showCityResults && citySearchResults.length > 0 && (
                       <View style={styles.suggestionsDropdown}>
                         <ScrollView 
@@ -424,6 +477,22 @@ export function ProfileCreation({ userEmail = '' }: ProfileCreationProps) {
                       </View>
                     )}
                   </View>
+                </View>
+
+                {/* Bike Model */}
+                <View style={styles.inputContainer}>
+                  <View style={styles.labelContainer}>
+                    <Ionicons name="bicycle" size={16} color="#666" />
+                    <ThemedText style={styles.label}>דגם אופניים (אופציונלי)</ThemedText>
+                  </View>
+                  <TextInput
+                    style={styles.input}
+                    value={formData.bikeModel}
+                    onChangeText={(value) => handleInputChange('bikeModel', value)}
+                    placeholder="לדוגמה: Trek Domane, Giant Defy, Specialized Allez..."
+                    placeholderTextColor="#999"
+                    textAlign="right"
+                  />
                 </View>
 
                 {/* Bio */}
@@ -634,44 +703,6 @@ const styles = StyleSheet.create({
     position: 'absolute',
     right: 40,
   },
-  suggestionsDropdown: {
-    backgroundColor: '#fff',
-    borderColor: '#D1D5DB',
-    borderWidth: 1,
-    borderRadius: 8,
-    marginTop: 5,
-    maxHeight: 200,
-    zIndex: 999,
-    elevation: 3,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    position: 'absolute',
-    top: 50,
-    left: 0,
-    right: 0,
-  },
-  suggestionsScroll: {
-    maxHeight: 180,
-  },
-  suggestionItem: {
-    paddingVertical: 10,
-    paddingHorizontal: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: '#D1D5DB',
-  },
-  suggestionText: {
-    fontSize: 15,
-    color: '#111827',
-    textAlign: 'right',
-  },
-  suggestionSubtext: {
-    fontSize: 13,
-    color: '#6B7280',
-    textAlign: 'right',
-    marginTop: 2,
-  },
   buttonSection: {
     gap: 12,
     paddingTop: 16,
@@ -707,5 +738,39 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: 'bold',
     color: Colors.light.text,
+  },
+  suggestionsDropdown: {
+    backgroundColor: '#fff',
+    borderColor: '#D1D5DB',
+    borderWidth: 1,
+    borderRadius: 8,
+    marginTop: 5,
+    maxHeight: 200,
+    zIndex: 999,
+    elevation: 3,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+  },
+  suggestionsScroll: {
+    maxHeight: 180,
+  },
+  suggestionItem: {
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#D1D5DB',
+  },
+  suggestionText: {
+    fontSize: 15,
+    color: '#111827',
+    textAlign: 'right',
+  },
+  suggestionSubtext: {
+    fontSize: 13,
+    color: '#6B7280',
+    textAlign: 'right',
+    marginTop: 2,
   },
 }); 

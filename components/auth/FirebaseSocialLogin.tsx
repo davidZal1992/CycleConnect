@@ -75,13 +75,15 @@ export function SocialLogin() {
       }
       
       // Sign-in the user with the credential
+      console.log('🔥 About to sign in with credential to Firebase Auth...');
+      
       const userCredential = await auth().signInWithCredential(credential);
       
       if (!userCredential.user) {
         throw new Error('Failed to get user after sign in');
       }
 
-      console.log('User signed in with Google:', userCredential.user.email);
+      console.log('🔥 ✅ User signed in with Google successfully:', userCredential.user.email);
       
       // Check if user has a profile
       const hasProfile = await checkUserProfile(userCredential.user.uid);
@@ -92,7 +94,6 @@ export function SocialLogin() {
       } else {
         router.replace('/profile-creation');
       }
-      
     } catch (error: any) {
       console.error('Google Sign-In Error:', error);
       
