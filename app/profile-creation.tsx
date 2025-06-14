@@ -1,6 +1,5 @@
 import { ProfileCreation } from '@/components/profile-creation/profile-creation';
 import { Stack } from 'expo-router';
-import React from 'react';
 
 export default function ProfileCreationScreen() {
   return (
@@ -10,6 +9,7 @@ export default function ProfileCreationScreen() {
           title: 'יצירת פרופיל',
           headerBackTitle: 'חזור',
           headerShown: true,
+          headerBackVisible: false,
         }} 
       />
       <ProfileCreation />

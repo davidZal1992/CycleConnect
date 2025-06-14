@@ -14,15 +14,6 @@ export const firebaseConfig = {
 
 if (!firebase.apps.length) {
   firebase.initializeApp(firebaseConfig);
-  
-  // Enable persistence
-  firebase.auth().setPersistence(firebase.auth.Auth.Persistence.LOCAL)
-    .then(() => {
-      console.log('🔥 Firebase auth persistence enabled');
-    })
-    .catch((error) => {
-      console.error('🔥 Error enabling persistence:', error);
-    });
 }
 
 // Connect to emulators in development
@@ -42,17 +33,29 @@ GoogleSignin.configure({
   webClientId: '696545960135-crhdd2fi9ngj1j4jp5af0vrao7jspenv.apps.googleusercontent.com',
   iosClientId: '696545960135-crhdd2fi9ngj1j4jp5af0vrao7jspenv.apps.googleusercontent.com',
   offlineAccess: true,
+  // Use the Firebase Auth emulator in development
+  ...(__DEV__ ? { useEmulator: true } : {})
 });
 
 // Check if user has a profile
 export const checkUserProfile = async (userId: string) => {
   try {
-    // TODO: Replace with your actual API call
-    const response = await fetch(`http://localhost:3000/api/users/${userId}`);
-    const data = await response.json();
-    return data.hasProfile;
-  } catch (error) {
+    console.log('🔥 Checking user profile for userId:', userId);
+    const response = await fetch(`http://localhost:8080/api/v1/profiles/exists/${userId}`);
+    console.log('🔥 Response status:', response.status);
+    console.log('🔥 Response headers:', response.headers);
+    
+    const hasProfile = await response.json();
+    console.log('🔥 Response data (hasProfile):', hasProfile);
+    
+    return hasProfile;
+  } catch (error: any) {
     console.error('🔥 Error checking user profile:', error);
+    console.error('🔥 Error details:', {
+      message: error?.message,
+      stack: error?.stack,
+      name: error?.name
+    });
     return false;
   }
 };
@@ -136,6 +139,9 @@ export const signInWithGoogle = async () => {
     const userCredential = await firebase.auth().signInWithCredential(googleCredential);
     
     // Check if user has a profile
+    if (!userCredential.user) {
+      throw new Error('שגיאה בהתחברות. לא התקבל מידע על המשתמש.');
+    }
     const hasProfile = await checkUserProfile(userCredential.user.uid);
     
     return {

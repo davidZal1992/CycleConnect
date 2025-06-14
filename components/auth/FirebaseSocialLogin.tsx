@@ -4,7 +4,7 @@ import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from 'expo-haptics';
 import { router } from 'expo-router';
 import firebase from 'firebase/compat/app';
-import React, { useState } from "react";
+import { useState } from "react";
 import { ActivityIndicator, Alert, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 
 export function SocialLogin() {
@@ -90,7 +90,7 @@ export function SocialLogin() {
       if (hasProfile) {
         router.replace('/(tabs)');
       } else {
-        router.replace('/onboarding' as any);
+        router.replace('/profile-creation');
       }
       
     } catch (error: any) {
