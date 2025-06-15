@@ -86,6 +86,23 @@ export default function ProfileScreen() {
     return fullName.trim() || 'רוכב חדש';
   };
 
+  // Calculate active months based on Firebase user creation time
+  const getActiveMonths = (): number => {
+    if (!user?.metadata?.creationTime) return 0;
+    
+    const creationDate = new Date(user.metadata.creationTime);
+    const currentDate = new Date();
+    
+    // Calculate difference in months
+    const yearDiff = currentDate.getFullYear() - creationDate.getFullYear();
+    const monthDiff = currentDate.getMonth() - creationDate.getMonth();
+    
+    const totalMonths = yearDiff * 12 + monthDiff;
+    
+    // Return at least 1 month if user was created this month
+    return Math.max(1, totalMonths);
+  };
+
   const handleLogout = () => {
     if (isLoggingOut) return; // Prevent multiple clicks
     
@@ -160,21 +177,14 @@ export default function ProfileScreen() {
               <View style={styles.statsContainer}>
                 <View style={styles.statItem}>
                   <ThemedText style={styles.statNumber}>0</ThemedText>
-                  <ThemedText style={styles.statLabel}>רכיבות</ThemedText>
+                  <ThemedText style={styles.statLabel}>רכיבות שלי</ThemedText>
                 </View>
                 
                 <View style={styles.statDivider} />
                 
                 <View style={styles.statItem}>
-                  <ThemedText style={styles.statNumber}>0</ThemedText>
-                  <ThemedText style={styles.statLabel}>חברים</ThemedText>
-                </View>
-                
-                <View style={styles.statDivider} />
-                
-                <View style={styles.statItem}>
-                  <ThemedText style={styles.statNumber}>0</ThemedText>
-                  <ThemedText style={styles.statLabel}>ק"מ</ThemedText>
+                  <ThemedText style={styles.statNumber}>{getActiveMonths()}</ThemedText>
+                  <ThemedText style={styles.statLabel}>חודשים פעיל</ThemedText>
                 </View>
               </View>
             </View>
