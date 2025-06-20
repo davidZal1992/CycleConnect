@@ -4,13 +4,16 @@ import { Colors } from '@/constants/Colors';
 import { useAuth } from '@/contexts/AuthContext';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import { router, useFocusEffect } from 'expo-router';
-import { useCallback, useState } from 'react';
-import { ActivityIndicator, Alert, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
+import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
+import { useCallback, useEffect, useState } from 'react';
+import { ActivityIndicator, Alert, Image, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 // API endpoint for profile
 const API_BASE_URL = 'http://localhost:8080/api/v1/profiles';
+
+// Default profile picture URL
+const DEFAULT_PROFILE_IMAGE = 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=400&h=400&fit=crop&crop=face&auto=format&q=80';
 
 interface UserProfile {
   userId: string;
@@ -25,18 +28,23 @@ interface UserProfile {
 
 export default function ProfileScreen() {
   const { signOut, user } = useAuth();
+  const { profileUpdated } = useLocalSearchParams<{ profileUpdated?: string }>();
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [isLoadingProfile, setIsLoadingProfile] = useState(true);
 
   // Fetch user profile from backend
-  const fetchUserProfile = useCallback(async () => {
+  const fetchUserProfile = useCallback(async (forceRefresh = false) => {
     if (!user?.uid) {
       setIsLoadingProfile(false);
       return;
     }
 
-    setIsLoadingProfile(true);
+    // Only show loading spinner for initial load or forced refresh
+    if (forceRefresh) {
+      setIsLoadingProfile(true);
+    }
+
     try {
       console.log('🔥 Profile - Fetching user profile for userId:', user.uid);
       const response = await fetch(`${API_BASE_URL}/${user.uid}`);
@@ -69,15 +77,39 @@ export default function ProfileScreen() {
         });
       }
     } finally {
-      setIsLoadingProfile(false);
+      if (forceRefresh) {
+        setIsLoadingProfile(false);
+      }
     }
   }, [user]);
 
-  // Refresh profile data when screen comes into focus
+  // Load profile data on initial mount
+  useEffect(() => {
+    if (user?.uid) {
+      fetchUserProfile(true); // Force refresh on initial load
+    }
+  }, [user?.uid, fetchUserProfile]);
+
+  // Handle profile updates from edit screen
+  useEffect(() => {
+    if (profileUpdated === 'true' && user?.uid) {
+      console.log('🔥 Profile - Profile was updated, refreshing data...');
+      fetchUserProfile(false); // Refresh without loading spinner
+      
+      // Clear the parameter by navigating back without it
+      router.setParams({ profileUpdated: undefined });
+    }
+  }, [profileUpdated, user?.uid, fetchUserProfile]);
+
+  // Refresh profile data when screen comes into focus (but only if we already have profile data)
   useFocusEffect(
     useCallback(() => {
-      fetchUserProfile();
-    }, [fetchUserProfile])
+      // Only refresh if we already have a profile (not initial load) and user exists
+      // Don't refresh if we just handled a profile update
+      if (userProfile && user?.uid && profileUpdated !== 'true') {
+        fetchUserProfile(false); // Don't show loading spinner for background refresh
+      }
+    }, [user?.uid, profileUpdated]) // Remove fetchUserProfile and userProfile from dependencies to prevent loop
   );
 
   // Get display name (full name or fallback)
@@ -168,7 +200,7 @@ export default function ProfileScreen() {
             <View style={styles.profileHeaderContent}>
               <View style={styles.avatarContainer}>
                 <View style={styles.avatarWrapper}>
-                  <Ionicons name="person" size={60} color="#FFFFFF" />
+                  <Image source={{ uri: userProfile?.profileImage || DEFAULT_PROFILE_IMAGE }} style={styles.avatarImage} />
                 </View>
               </View>
               
@@ -273,6 +305,11 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     borderWidth: 3,
     borderColor: 'white',
+  },
+  avatarImage: {
+    width: '100%',
+    height: '100%',
+    borderRadius: 50,
   },
   username: {
     color: 'white',

@@ -9,12 +9,15 @@ import { useFilterState } from '@/hooks/use-filter-state';
 import { Ride } from '@/types/ride';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import { useEffect, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, FlatList, Image, StyleSheet, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 // API endpoint for profile
 const API_BASE_URL = 'http://localhost:8080/api/v1/profiles';
+
+// Cache the banner image source to prevent re-rendering
+const BANNER_IMAGE_SOURCE = require('@/assets/images/cyclists.jpg');
 
 interface UserProfile {
   userId: string;
@@ -27,13 +30,14 @@ interface UserProfile {
   bio?: string;
 }
 
-export function HomeScreen() {
+function HomeScreenComponent() {
   const router = useRouter();
   const { user } = useAuth();
   const [isFilterModalVisible, setFilterModalVisible] = useState(false);
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [isLoadingProfile, setIsLoadingProfile] = useState(true);
   const [isLoadingRides, setIsLoadingRides] = useState(false); // For future rides API
+  const [hasInitiallyLoaded, setHasInitiallyLoaded] = useState(false);
   
   const {
     filterState,
@@ -49,6 +53,11 @@ export function HomeScreen() {
       if (!user?.uid) {
         setIsLoadingProfile(false);
         return;
+      }
+
+      // Only show loading spinner on initial load
+      if (!hasInitiallyLoaded) {
+        setIsLoadingProfile(true);
       }
 
       try {
@@ -84,11 +93,14 @@ export function HomeScreen() {
         }
       } finally {
         setIsLoadingProfile(false);
+        setHasInitiallyLoaded(true);
       }
     };
 
-    fetchUserProfile();
-  }, [user]);
+    if (user?.uid) {
+      fetchUserProfile();
+    }
+  }, [user?.uid, hasInitiallyLoaded]);
 
   // Extract first name from full name
   const getFirstName = (fullName?: string): string => {
@@ -158,7 +170,7 @@ export function HomeScreen() {
       {/* Featured Banner */}
       <View style={styles.bannerContainer}>
         <Image
-          source={require('@/assets/images/cyclists.jpg')}
+          source={BANNER_IMAGE_SOURCE}
           style={styles.bannerImage}
           resizeMode="cover"
         />
@@ -341,10 +353,13 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  loadingText: {
-    color: Colors.light.primary,
-    fontSize: 16,
-    fontWeight: 'bold',
-    marginTop: 16,
-  },
-}); 
+      loadingText: {
+      color: Colors.light.primary,
+      fontSize: 16,
+      fontWeight: 'bold',
+      marginTop: 16,
+    },
+  });
+
+// Export memoized component to prevent unnecessary re-renders
+export const HomeScreen = React.memo(HomeScreenComponent); 

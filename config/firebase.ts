@@ -2,6 +2,7 @@ import { appleAuth } from '@invertase/react-native-apple-authentication';
 import { GoogleSignin } from '@react-native-google-signin/google-signin';
 import firebase from 'firebase/compat/app';
 import 'firebase/compat/auth';
+import 'firebase/compat/storage';
 
 export const firebaseConfig = {
   apiKey: "AIzaSyAg0-YFnGnfg4-BNoiXgD52rghhHxWC--c",
@@ -20,12 +21,20 @@ if (!firebase.apps.length) {
 if (__DEV__) {
   console.log('🔥 Connecting to Firebase emulators...');
   console.log('🔥 Auth emulator: http://localhost:9099');
+  console.log('🔥 Storage emulator: http://localhost:9199');
   
   try {
     firebase.auth().useEmulator('http://localhost:9099');
     console.log('🔥 ✅ Auth emulator connected successfully');
   } catch (error) {
     console.error('🔥 ❌ Failed to connect to Auth emulator:', error);
+  }
+  
+  try {
+    firebase.storage().useEmulator('localhost', 9199);
+    console.log('🔥 ✅ Storage emulator connected successfully');
+  } catch (error) {
+    console.error('🔥 ❌ Failed to connect to Storage emulator:', error);
   }
 }
 
@@ -34,6 +43,7 @@ console.log('🔥 Firebase apps:', firebase.apps.length);
 
 // Export auth and storage functions
 export const auth = firebase.auth;
+export const storage = firebase.storage;
 
 // Configure Google Sign-In
 GoogleSignin.configure({
@@ -43,10 +53,10 @@ GoogleSignin.configure({
 });
 
 // Check if user has a profile
-export const checkUserProfile = async (userId: string) => {
+export const checkUserProfile = async (email: string) => {
   try {
-    console.log('🔥 Checking user profile for userId:', userId);
-    const response = await fetch(`http://localhost:8080/api/v1/profiles/exists/${userId}`);
+    console.log('🔥 Checking user profile for email:', email);
+    const response = await fetch(`http://localhost:8080/api/v1/profiles/email/${encodeURIComponent(email)}`);
     console.log('🔥 Response status:', response.status);
     console.log('🔥 Response headers:', response.headers);
     
@@ -74,7 +84,7 @@ export const signInWithEmail = async (email: string, password: string) => {
     }
     
     // Check if user has a profile
-    const hasProfile = await checkUserProfile(userCredential.user.uid);
+    const hasProfile = await checkUserProfile(userCredential.user.email || email);
     
     return {
       user: userCredential.user,

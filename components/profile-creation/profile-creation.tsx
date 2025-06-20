@@ -1,5 +1,5 @@
 import { ThemedText } from '@/components/ThemedText';
-import { auth } from '@/config/firebase';
+import { auth, storage } from '@/config/firebase';
 import { Colors } from '@/constants/Colors';
 import { Ionicons } from '@expo/vector-icons';
 import axios from 'axios';
@@ -8,17 +8,17 @@ import * as ImagePicker from 'expo-image-picker';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
 import {
-  ActivityIndicator,
-  Alert,
-  Image,
-  Keyboard,
-  KeyboardAvoidingView,
-  Platform,
-  ScrollView,
-  StyleSheet,
-  TextInput,
-  TouchableOpacity,
-  View
+    ActivityIndicator,
+    Alert,
+    Image,
+    Keyboard,
+    KeyboardAvoidingView,
+    Platform,
+    ScrollView,
+    StyleSheet,
+    TextInput,
+    TouchableOpacity,
+    View
 } from 'react-native';
 import DateTimePickerModal from 'react-native-modal-datetime-picker';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -44,6 +44,36 @@ interface ProfileCreationProps {
   userEmail?: string;
 }
 
+// Firebase Storage upload function
+const uploadImageToFirebaseStorage = async (imageUri: string, userId: string): Promise<string> => {
+  try {
+    console.log('🔥 Starting image upload to Firebase Storage...');
+    
+    // Use a consistent filename to overwrite existing profile image
+    const filename = 'profile.jpg';
+    const storageRef = storage().ref(`profile-images/${userId}/${filename}`);
+    
+    // Convert the image to blob
+    const response = await fetch(imageUri);
+    const blob = await response.blob();
+    
+    console.log('🔥 Uploading image blob to Firebase Storage (will overwrite existing)...');
+    
+    // Upload the image - this will overwrite any existing file with the same name
+    const uploadTask = await storageRef.put(blob);
+    
+    // Get the download URL
+    const downloadURL = await uploadTask.ref.getDownloadURL();
+    
+    console.log('🔥 ✅ Image uploaded successfully (overwrote existing):', downloadURL);
+    return downloadURL;
+    
+  } catch (error) {
+    console.error('🔥 ❌ Error uploading image to Firebase Storage:', error);
+    throw new Error('Failed to upload image');
+  }
+};
+
 export function ProfileCreation({ userEmail = '' }: ProfileCreationProps) {
   const router = useRouter();
   const params = useLocalSearchParams();
@@ -66,6 +96,7 @@ export function ProfileCreation({ userEmail = '' }: ProfileCreationProps) {
   });
 
   const [isLoading, setIsLoading] = useState(false);
+  const [isUploadingImage, setIsUploadingImage] = useState(false);
   const [isDatePickerVisible, setDatePickerVisibility] = useState(false);
   
   // Location search states
@@ -141,7 +172,10 @@ export function ProfileCreation({ userEmail = '' }: ProfileCreationProps) {
     
     try {
       const response = await axios.get(PROXY_URL, {
-        params: { input: text, language: 'iw' }
+        params: { input: text, language: 'iw' },
+        headers: {
+          'ngrok-skip-browser-warning': 'true'
+        }
       });
       
       console.log('API Response:', response.data);
@@ -173,30 +207,44 @@ export function ProfileCreation({ userEmail = '' }: ProfileCreationProps) {
   };
 
   const handleImageUpload = async () => {
+    if (!currentUser) {
+      Alert.alert('שגיאה', 'לא נמצא משתמש מחובר');
+      return;
+    }
+
     try {
-      // Directly launch image picker without permission checks
+      setIsUploadingImage(true);
+      
+      // Launch image picker
       const result = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ImagePicker.MediaTypeOptions.Images,
         allowsEditing: true,
         aspect: [1, 1],
-        quality: 0.5, // Reduced from 0.7 to 0.5 for smaller file size
+        quality: 0.7,
         base64: false,
       });
 
       if (!result.canceled && result.assets[0]) {
         const asset = result.assets[0];
         
-        // Reduced file size limit from 5MB to 2MB
-        if (asset.fileSize && asset.fileSize > 2 * 1024 * 1024) {
-          Alert.alert('קובץ גדול מדי', 'אנא בחר תמונה קטנה יותר (עד 2MB)');
+        // Check file size (max 5MB)
+        if (asset.fileSize && asset.fileSize > 5 * 1024 * 1024) {
+          Alert.alert('קובץ גדול מדי', 'אנא בחר תמונה קטנה יותר (עד 5MB)');
           return;
         }
 
-        setFormData(prev => ({ ...prev, profileImage: asset.uri }));
+        console.log('🔥 Uploading image to Firebase Storage...');
+        
+        // Upload to Firebase Storage
+        const downloadURL = await uploadImageToFirebaseStorage(asset.uri, currentUser.uid);
+        
+        // Update form data with the Firebase Storage URL
+        setFormData(prev => ({ ...prev, profileImage: downloadURL }));
       }
     } catch (error) {
-      console.error('Error in handleImageUpload:', error);
-      Alert.alert('שגיאה', 'לא ניתן לטעון תמונה. אנא נסה שוב.');
+      console.error('🔥 Error in handleImageUpload:', error);
+    } finally {
+      setIsUploadingImage(false);
     }
   };
 
@@ -258,8 +306,10 @@ export function ProfileCreation({ userEmail = '' }: ProfileCreationProps) {
     try {
       setIsLoading(true);
       
-      // Use default image if no image selected, otherwise use the selected image URI
-      const profileImageUrl = formData.profileImage || 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=400&h=400&fit=crop&crop=face&auto=format&q=80';
+      // Use Firebase Storage URL if available, otherwise use default image
+      const profileImageUrl = formData.profileImage || DEFAULT_PROFILE_IMAGE;
+      
+      console.log('🔥 Using profile image URL:', profileImageUrl);
 
       // Prepare profile data according to ProfileDTO structure
       const profileData = {
@@ -329,7 +379,11 @@ export function ProfileCreation({ userEmail = '' }: ProfileCreationProps) {
             <View style={styles.cardContent}>
               {/* Profile Image Section */}
               <View style={styles.imageSection}>
-                <TouchableOpacity style={styles.avatarContainer} onPress={handleImageUpload}>
+                <TouchableOpacity 
+                  style={[styles.avatarContainer, isUploadingImage && styles.avatarContainerDisabled]} 
+                  onPress={handleImageUpload}
+                  disabled={isUploadingImage}
+                >
                   {formData.profileImage ? (
                     <Image source={{ uri: formData.profileImage }} style={styles.avatar} />
                   ) : (
@@ -338,10 +392,16 @@ export function ProfileCreation({ userEmail = '' }: ProfileCreationProps) {
                     </View>
                   )}
                   <View style={styles.cameraButton}>
-                    <Ionicons name="camera" size={16} color="#FFFFFF" />
+                    {isUploadingImage ? (
+                      <ActivityIndicator size="small" color="#FFFFFF" />
+                    ) : (
+                      <Ionicons name="camera" size={16} color="#FFFFFF" />
+                    )}
                   </View>
                 </TouchableOpacity>
-                <ThemedText style={styles.imageLabel}>הוסף תמונת פרופיל</ThemedText>
+                <ThemedText style={styles.imageLabel}>
+                  {isUploadingImage ? 'מעלה תמונה...' : 'הוסף תמונת פרופיל'}
+                </ThemedText>
               </View>
 
               {/* Personal Information */}
@@ -808,5 +868,8 @@ const styles = StyleSheet.create({
     color: '#6B7280',
     textAlign: 'right',
     marginTop: 4,
+  },
+  avatarContainerDisabled: {
+    opacity: 0.5,
   },
 }); 

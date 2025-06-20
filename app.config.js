@@ -86,9 +86,9 @@ export default {
       "com.googleusercontent.apps.696545960135-crhdd2fi9ngj1j4jp5af0vrao7jspenv"
     ],
     extra: {
-      proxyUrl: process.env.NGROK_URL ? `${process.env.NGROK_URL}/places-proxy/autocomplete` : 'http://172.28.129.120:3000/places-proxy/autocomplete',
+              proxyUrl: 'https://a9a3-85-65-219-57.ngrok-free.app/places-proxy/autocomplete',
       eas: {
-        projectId: "eecb061f-706b-4b01-b3a2-f17de4587980"
+        projectId: "2ce35742-aac4-4409-82bf-a54cf252b7b9"
       }
     }
   }

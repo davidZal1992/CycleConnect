@@ -8,8 +8,8 @@ export const Config = {
   API_BASE_URL: 'https://b2b0-46-117-83-205.ngrok-free.app', // Replace with your actual API URL
   
   // Places API proxy endpoints
-  placesProxyAutocomplete: 'https://b2b0-46-117-83-205.ngrok-free.app/places-proxy/autocomplete',
-  placesProxyDetails: 'https://b2b0-46-117-83-205.ngrok-free.app/places-proxy/details',
+  placesProxyAutocomplete: 'https://a9a3-85-65-219-57.ngrok-free.app/places-proxy/autocomplete',
+  placesProxyDetails: 'https://a9a3-85-65-219-57.ngrok-free.app/places-proxy/details',
   
   // IMPORTANT: REPLACE WITH YOUR ACTUAL GOOGLE MAPS API KEY
   // The key must have Places API enabled in your Google Cloud Console

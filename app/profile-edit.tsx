@@ -1,14 +1,17 @@
 import { ThemedText } from '@/components/ThemedText';
+import { storage } from '@/config/firebase';
 import { Colors } from '@/constants/Colors';
 import { useAuth } from '@/contexts/AuthContext';
 import { Ionicons } from '@expo/vector-icons';
 import axios from 'axios';
 import Constants from 'expo-constants';
+import * as ImagePicker from 'expo-image-picker';
 import { router, Stack } from 'expo-router';
-import { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
     ActivityIndicator,
     Alert,
+    Image,
     Keyboard,
     KeyboardAvoidingView,
     Platform,
@@ -25,6 +28,39 @@ const PROXY_URL = Constants.expoConfig?.extra?.proxyUrl || 'http://localhost:300
 
 // API endpoint for profile
 const API_BASE_URL = 'http://localhost:8080/api/v1/profiles';
+
+// Default profile picture URL
+const DEFAULT_PROFILE_IMAGE = 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=400&h=400&fit=crop&crop=face&auto=format&q=80';
+
+// Firebase Storage upload function
+const uploadImageToFirebaseStorage = async (imageUri: string, userId: string): Promise<string> => {
+  try {
+    console.log('🔥 Starting image upload to Firebase Storage...');
+    
+    // Use a consistent filename to overwrite existing profile image
+    const filename = 'profile.jpg';
+    const storageRef = storage().ref(`profile-images/${userId}/${filename}`);
+    
+    // Convert the image to blob
+    const response = await fetch(imageUri);
+    const blob = await response.blob();
+    
+    console.log('🔥 Uploading image blob to Firebase Storage (will overwrite existing)...');
+    
+    // Upload the image - this will overwrite any existing file with the same name
+    const uploadTask = await storageRef.put(blob);
+    
+    // Get the download URL
+    const downloadURL = await uploadTask.ref.getDownloadURL();
+    
+    console.log('🔥 ✅ Image uploaded successfully (overwrote existing):', downloadURL);
+    return downloadURL;
+    
+  } catch (error) {
+    console.error('🔥 ❌ Error uploading image to Firebase Storage:', error);
+    throw new Error('Failed to upload image');
+  }
+};
 
 // Define interface for search result items
 interface SearchResultItem {
@@ -61,6 +97,10 @@ export default function ProfileEditScreen() {
   const [bikeModel, setBikeModel] = useState('');
   const [location, setLocation] = useState('');
   const [bio, setBio] = useState('');
+  
+  // Image upload states
+  const [profileImage, setProfileImage] = useState<string | null>(null);
+  const [isUploadingImage, setIsUploadingImage] = useState(false);
 
   // Location search states
   const [cityInput, setCityInput] = useState('');
@@ -138,20 +178,21 @@ export default function ProfileEditScreen() {
           
           // Populate form fields
           const nameParts = profile.fullName?.split(' ') || [];
-          setLastName(nameParts[0] || '');
-          setFirstName(nameParts.slice(1).join(' ') || '');
+          setFirstName(nameParts[0] || '');
+          setLastName(nameParts.slice(1).join(' ') || '');
           setPhoneNumber(profile.phoneNumber || '');
           setBikeModel(profile.bikeModel || '');
           setLocation(profile.location || '');
           setCityInput(profile.location || '');
           setBio(profile.bio || '');
+          setProfileImage(profile.profileImage || null);
         } else {
           console.log('🔥 ProfileEdit - No profile found for user');
           // Initialize with Firebase data if available
           if (user.displayName) {
             const nameParts = user.displayName.split(' ');
-            setLastName(nameParts[0] || '');
-            setFirstName(nameParts.slice(1).join(' ') || '');
+            setFirstName(nameParts[0] || '');
+            setLastName(nameParts.slice(1).join(' ') || '');
           }
         }
       } catch (error) {
@@ -199,39 +240,70 @@ export default function ProfileEditScreen() {
   };
 
   const handleInputChange = (field: string, value: string) => {
-    // Clear error when user starts typing
-    if (errors[field]) {
-      setErrors(prev => ({ ...prev, [field]: '' }));
-    }
-
-    // Apply character limits
-    let limitedValue = value;
-    
-    if (field === 'firstName' || field === 'lastName') {
-      limitedValue = value.slice(0, 10); // Max 10 characters
-    } else if (field === 'bio') {
-      limitedValue = value.slice(0, 30); // Max 30 characters
-    }
-
     switch (field) {
       case 'firstName':
-        setFirstName(limitedValue);
+        setFirstName(value.slice(0, 10));
         break;
       case 'lastName':
-        setLastName(limitedValue);
+        setLastName(value.slice(0, 10));
         break;
       case 'phoneNumber':
-        setPhoneNumber(value);
+        // Remove non-digits and limit to 10 characters
+        const cleanedPhone = value.replace(/\D/g, '').slice(0, 10);
+        setPhoneNumber(cleanedPhone);
         break;
       case 'bikeModel':
         setBikeModel(value);
         break;
-      case 'location':
-        setLocation(value);
-        break;
       case 'bio':
-        setBio(limitedValue);
+        setBio(value.slice(0, 30));
         break;
+    }
+    
+    // Clear specific field error when user starts typing
+    if (errors[field]) {
+      setErrors(prev => ({ ...prev, [field]: '' }));
+    }
+  };
+
+  const handleImageUpload = async () => {
+    if (!user?.uid) {
+      return;
+    }
+
+    try {
+      setIsUploadingImage(true);
+      
+      // Launch image picker
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 0.7,
+        base64: false,
+      });
+
+      if (!result.canceled && result.assets[0]) {
+        const asset = result.assets[0];
+        
+        // Check file size (max 5MB)
+        if (asset.fileSize && asset.fileSize > 5 * 1024 * 1024) {
+          Alert.alert('קובץ גדול מדי', 'אנא בחר תמונה קטנה יותר (עד 5MB)');
+          return;
+        }
+
+        console.log('🔥 Uploading image to Firebase Storage...');
+        
+        // Upload to Firebase Storage
+        const downloadURL = await uploadImageToFirebaseStorage(asset.uri, user.uid);
+        
+        // Update profile image state
+        setProfileImage(downloadURL);
+      }
+    } catch (error) {
+      console.error('🔥 Error in handleImageUpload:', error);
+    } finally {
+      setIsUploadingImage(false);
     }
   };
 
@@ -243,13 +315,14 @@ export default function ProfileEditScreen() {
     setIsSaving(true);
 
     try {
-      const fullName = `${lastName.trim()} ${firstName.trim()}`.trim();
+      const fullName = `${firstName.trim()} ${lastName.trim()}`.trim();
       
       const profileData = {
         userId: user.uid,
         fullName,
         phoneNumber: phoneNumber.trim(),
         email: user.email || '',
+        profileImage: profileImage || userProfile?.profileImage || undefined,
         bikeModel: bikeModel.trim() || undefined,
         location: location.trim() || undefined,
         bio: bio.trim() || undefined,
@@ -269,16 +342,11 @@ export default function ProfileEditScreen() {
         const updatedProfile = await response.json();
         console.log('🔥 ProfileEdit - Profile updated successfully:', updatedProfile);
         
-        Alert.alert(
-          'הצלחה',
-          'הפרופיל עודכן בהצלחה!',
-          [
-            {
-              text: 'אישור',
-              onPress: () => router.back(),
-            },
-          ]
-        );
+        // Navigate back to profile with update flag (no alert)
+        router.navigate({
+          pathname: '/(tabs)/profile',
+          params: { profileUpdated: 'true' }
+        });
       } else {
         const errorData = await response.text();
         console.error('🔥 ProfileEdit - Error updating profile:', errorData);
@@ -333,12 +401,29 @@ export default function ProfileEditScreen() {
               <View style={styles.cardContent}>
                 {/* Profile Image Section */}
                 <View style={styles.imageSection}>
-                  <View style={styles.avatarContainer}>
-                    <View style={styles.avatarPlaceholder}>
-                      <Ionicons name="person" size={32} color={Colors.light.primary} />
+                  <TouchableOpacity 
+                    style={[styles.avatarContainer, isUploadingImage && styles.avatarContainerDisabled]} 
+                    onPress={handleImageUpload}
+                    disabled={isUploadingImage}
+                  >
+                    {profileImage ? (
+                      <Image source={{ uri: profileImage }} style={styles.avatar} />
+                    ) : (
+                      <View style={styles.avatarPlaceholder}>
+                        <Ionicons name="person" size={32} color={Colors.light.primary} />
+                      </View>
+                    )}
+                    <View style={styles.cameraButton}>
+                      {isUploadingImage ? (
+                        <ActivityIndicator size="small" color="#FFFFFF" />
+                      ) : (
+                        <Ionicons name="camera" size={16} color="#FFFFFF" />
+                      )}
                     </View>
-                  </View>
-                  <ThemedText style={styles.imageLabel}>תמונת פרופיל</ThemedText>
+                  </TouchableOpacity>
+                  <ThemedText style={styles.imageLabel}>
+                    {isUploadingImage ? 'מעלה תמונה...' : 'ערוך תמונת פרופיל'}
+                  </ThemedText>
                 </View>
 
                 {/* Personal Information */}
@@ -799,5 +884,21 @@ const styles = StyleSheet.create({
     marginTop: 16,
     fontSize: 16,
     fontWeight: 'bold',
+  },
+  avatar: {
+    width: 96,
+    height: 96,
+    borderRadius: 48,
+  },
+  cameraButton: {
+    position: 'absolute',
+    bottom: 0,
+    right: 0,
+    backgroundColor: Colors.light.primary,
+    borderRadius: 16,
+    padding: 4,
+  },
+  avatarContainerDisabled: {
+    opacity: 0.5,
   },
 }); 

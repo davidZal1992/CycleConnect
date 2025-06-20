@@ -86,7 +86,7 @@ export function SocialLogin() {
       console.log('🔥 ✅ User signed in with Google successfully:', userCredential.user.email);
       
       // Check if user has a profile
-      const hasProfile = await checkUserProfile(userCredential.user.uid);
+      const hasProfile = await checkUserProfile(userCredential.user.email || '');
       
       // Navigate based on profile status
       if (hasProfile) {
