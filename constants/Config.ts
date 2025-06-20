@@ -5,7 +5,7 @@
 
 export const Config = {
   // API endpoints
-  API_BASE_URL: 'https://b2b0-46-117-83-205.ngrok-free.app', // Replace with your actual API URL
+  API_BASE_URL: 'http://localhost:8080', // Your backend server
   
   // Places API proxy endpoints
   placesProxyAutocomplete: 'https://a9a3-85-65-219-57.ngrok-free.app/places-proxy/autocomplete',

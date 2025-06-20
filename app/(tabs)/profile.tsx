@@ -200,7 +200,13 @@ export default function ProfileScreen() {
             <View style={styles.profileHeaderContent}>
               <View style={styles.avatarContainer}>
                 <View style={styles.avatarWrapper}>
-                  <Image source={{ uri: userProfile?.profileImage || DEFAULT_PROFILE_IMAGE }} style={styles.avatarImage} />
+                  {userProfile?.profileImage && userProfile.profileImage.trim() !== '' ? (
+                    <Image source={{ uri: userProfile.profileImage }} style={styles.avatarImage} />
+                  ) : (
+                    <View style={styles.avatarPlaceholder}>
+                      <Ionicons name="person" size={40} color="white" />
+                    </View>
+                  )}
                 </View>
               </View>
               
@@ -310,6 +316,14 @@ const styles = StyleSheet.create({
     width: '100%',
     height: '100%',
     borderRadius: 50,
+  },
+  avatarPlaceholder: {
+    width: '100%',
+    height: '100%',
+    borderRadius: 50,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
   },
   username: {
     color: 'white',

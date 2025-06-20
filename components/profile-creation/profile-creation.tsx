@@ -1,6 +1,7 @@
 import { ThemedText } from '@/components/ThemedText';
 import { auth, storage } from '@/config/firebase';
 import { Colors } from '@/constants/Colors';
+import { useAuth } from '@/contexts/AuthContext';
 import { Ionicons } from '@expo/vector-icons';
 import axios from 'axios';
 import Constants from 'expo-constants';
@@ -77,6 +78,7 @@ const uploadImageToFirebaseStorage = async (imageUri: string, userId: string): P
 export function ProfileCreation({ userEmail = '' }: ProfileCreationProps) {
   const router = useRouter();
   const params = useLocalSearchParams();
+  const { updateStoredProfile } = useAuth();
   
   // Refs
   const cityInputRef = useRef<TextInput>(null);
@@ -306,8 +308,8 @@ export function ProfileCreation({ userEmail = '' }: ProfileCreationProps) {
     try {
       setIsLoading(true);
       
-      // Use Firebase Storage URL if available, otherwise use default image
-      const profileImageUrl = formData.profileImage || DEFAULT_PROFILE_IMAGE;
+      // Use Firebase Storage URL if available, otherwise send null to use default anonymous icon
+      const profileImageUrl = formData.profileImage || null;
       
       console.log('🔥 Using profile image URL:', profileImageUrl);
 
@@ -333,6 +335,9 @@ export function ProfileCreation({ userEmail = '' }: ProfileCreationProps) {
       });
 
       console.log('🔥 Profile created successfully:', response.data);
+      
+      // Update the stored profile in AuthContext
+      updateStoredProfile(response.data);
       
       Alert.alert(
         'הצלחה!', 

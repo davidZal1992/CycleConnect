@@ -36,12 +36,12 @@ export const mockRides: Ride[] = [
       latitude: 32.0993,
       longitude: 34.8148
     },
-    date: '15/07/2023',
+    date: '15/02/2025',
     time: '06:30',
     distance: 25,
     description: 'רכיבת בוקר נינוחה לאורך פארק הירקון המרהיב. הרכיבה מתאימה לכל הרמות, כולל עצירה לקפה ומאפה באמצע הדרך. נפגשים בכניסה הצפונית של הפארק.',
     organizer: {
-      id: 'user1',
+      id: 'current-user',
       name: 'דוד זלצמן',
       avatar: 'https://randomuser.me/api/portraits/men/32.jpg',
       phone: '050-1234567',
@@ -63,7 +63,7 @@ export const mockRides: Ride[] = [
       latitude: 31.9361,
       longitude: 34.9574
     },
-    date: '18/07/2023',
+    date: '18/03/2025',
     time: '16:00',
     distance: 35,
     description: 'רכיבת שטח מאתגרת ביער בן שמן. נעבור בשבילים טכניים ומהנים, מסלול מעגלי שמתאים לרוכבים בעלי ניסיון בינוני. יש להביא מספיק מים ומזון.',
@@ -90,7 +90,7 @@ export const mockRides: Ride[] = [
       latitude: 31.8018,
       longitude: 35.1149
     },
-    date: '20/07/2023',
+    date: '20/04/2025',
     time: '07:00',
     distance: 60,
     description: 'רכיבת גראבל ארוכה ומאתגרת בהרי ירושלים. נטפס כ-1000 מטרים במצטבר, נעבור בנופים מרהיבים ובדרכי עפר היסטוריות. מיועד לרוכבים מנוסים בכושר טוב.',
@@ -117,7 +117,7 @@ export const mockRides: Ride[] = [
       latitude: 31.9284,
       longitude: 34.9607
     },
-    date: '25/07/2023',
+    date: '25/05/2025',
     time: '15:30',
     distance: 20,
     description: 'סדנת טכניקה ורכיבה בסינגלים של בן שמן. נתמקד בשיפור מיומנויות בירידות ופניות. מתאים לרוכבים המעוניינים לשפר את היכולות הטכניות שלהם.',
@@ -149,7 +149,7 @@ export const mockRides: Ride[] = [
     distance: 15,
     description: 'רכיבה קלילה לאורך הטיילת של תל אביב בשעת שקיעה. נעצור לשתייה קלה באחד מבתי הקפה בנמל. מתאים לכל הרמות, אווירה כיפית ורגועה.',
     organizer: {
-      id: 'user1',
+      id: 'current-user',
       name: 'דוד זלצמן',
       avatar: 'https://randomuser.me/api/portraits/men/32.jpg',
       phone: '050-1234567',

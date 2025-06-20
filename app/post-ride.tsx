@@ -1,25 +1,26 @@
 import { LocationSearchRef } from '@/components/LocationSearch';
 import { ThemedText } from '@/components/ThemedText';
 import { Colors } from '@/constants/Colors';
+import { Config } from '@/constants/Config';
+import { useAuth } from '@/contexts/AuthContext';
 import { mockRides } from '@/data/mock-rides';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import Slider from '@react-native-community/slider';
-import axios from 'axios';
 import Constants from 'expo-constants';
 import { router, Stack, useLocalSearchParams } from 'expo-router';
 import React, { useContext, useEffect, useRef, useState } from 'react';
 import {
-    ActivityIndicator,
-    Alert,
-    Keyboard,
-    KeyboardAvoidingView,
-    Platform,
-    ScrollView,
-    StyleSheet,
-    TextInput,
-    TouchableOpacity,
-    TouchableWithoutFeedback,
-    View
+  ActivityIndicator,
+  Alert,
+  Keyboard,
+  KeyboardAvoidingView,
+  Platform,
+  ScrollView,
+  StyleSheet,
+  TextInput,
+  TouchableOpacity,
+  TouchableWithoutFeedback,
+  View
 } from 'react-native';
 import DateTimePickerModal from 'react-native-modal-datetime-picker';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -37,6 +38,7 @@ interface SearchResultItem {
   placeId: string;
   mainText: string;
   secondaryText: string;
+  coordinates?: { latitude: number; longitude: number };
 }
 
 const styles = StyleSheet.create({
@@ -67,6 +69,10 @@ const styles = StyleSheet.create({
     borderColor: Colors.light.border,
     borderRadius: 8,
     backgroundColor: Colors.light.inputBg,
+  },
+  inputWrapperError: {
+    borderColor: '#ff3b30',
+    borderWidth: 2,
   },
   inputIcon: {
     padding: 10,
@@ -167,6 +173,10 @@ const styles = StyleSheet.create({
     backgroundColor: 'white',
     minWidth: 80,
     alignItems: 'center',
+  },
+  filterTagError: {
+    borderColor: '#ff3b30',
+    borderWidth: 2,
   },
   filterTagContent: {
     flexDirection: 'row',
@@ -341,16 +351,28 @@ const styles = StyleSheet.create({
     color: Colors.light.text + '80',
     marginLeft: 10,
   },
+  requiredFieldIndicator: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  requiredText: {
+    color: '#e74c3c',
+    fontSize: 16,
+    fontWeight: 'bold',
+    marginRight: 4,
+  },
 });
 
 export default function PostRideScreen() {
-  // Get app state from context
   const { isAppReady } = useContext(AppStateContext);
+  const { user, userProfile } = useAuth();
   const { editMode, rideId } = useLocalSearchParams<{ editMode?: string; rideId?: string }>();
   const isEditMode = editMode === 'true';
 
   // Refs
   const searchRef = useRef<LocationSearchRef>(null);
+  const titleRef = useRef<TextInput>(null);
+  const descriptionRef = useRef<TextInput>(null);
 
   // States for form fields
   const [title, setTitle] = useState('');
@@ -360,7 +382,7 @@ export default function PostRideScreen() {
   const [location, setLocation] = useState('');
   const [locationStatus, setLocationStatus] = useState<'none' | 'loading' | 'error' | 'success'>('none');
   const [locationCoords, setLocationCoords] = useState<{ latitude: number; longitude: number } | null>(null);
-  const [distance, setDistance] = useState(25);
+  const [distance, setDistance] = useState(10);
   const [maxParticipants, setMaxParticipants] = useState(8);
   const [filters, setFilters] = useState({
     type: 'road',
@@ -376,6 +398,9 @@ export default function PostRideScreen() {
   
   // Loading state for submission
   const [isSubmitting, setIsSubmitting] = useState(false);
+  
+  // Validation error states
+  const [validationErrors, setValidationErrors] = useState<{[key: string]: boolean}>({});
   
   // Effect to load ride data if in edit mode
   useEffect(() => {
@@ -556,98 +581,180 @@ export default function PostRideScreen() {
   };
 
   // Handle form submission
-  const handleSubmit = () => {
-    // Form validation
-    if (!title) {
-      Alert.alert('שגיאה', 'אנא הכנס כותרת לרכיבה');
-      return;
+  const handleSubmit = async () => {
+    // Reset previous validation errors
+    setValidationErrors({});
+    
+    // Comprehensive form validation with visual indicators
+    const errors: {[key: string]: boolean} = {};
+    let firstErrorField: string | null = null;
+    
+    if (!title.trim()) {
+      errors.title = true;
+      if (!firstErrorField) firstErrorField = 'title';
+    }
+    
+    if (!description.trim()) {
+      errors.description = true;
+      if (!firstErrorField) firstErrorField = 'description';
+    } else if (description.trim().length < 10) {
+      errors.description = true;
+      if (!firstErrorField) firstErrorField = 'description';
     }
     
     if (!location || !locationCoords) {
-      Alert.alert('שגיאה', 'אנא בחר מיקום תקין');
-      return;
+      errors.location = true;
+      if (!firstErrorField) firstErrorField = 'location';
     }
     
     if (!date) {
-      Alert.alert('שגיאה', 'אנא בחר תאריך');
-      return;
+      errors.date = true;
+      if (!firstErrorField) firstErrorField = 'date';
     }
     
     if (!time) {
-      Alert.alert('שגיאה', 'אנא בחר שעה');
-      return;
+      errors.time = true;
+      if (!firstErrorField) firstErrorField = 'time';
     }
     
-    // Check if required filters are selected
     if (selectedTypes.length === 0) {
-      Alert.alert('שגיאה', 'אנא בחר סוג רכיבה');
-      return;
+      errors.rideType = true;
+      if (!firstErrorField) firstErrorField = 'rideType';
     }
     
     if (selectedDifficulties.length === 0) {
-      Alert.alert('שגיאה', 'אנא בחר רמת קושי');
+      errors.difficulty = true;
+      if (!firstErrorField) firstErrorField = 'difficulty';
+    }
+    
+    if (selectedTechnicalLevels.length === 0) {
+      errors.technical = true;
+      if (!firstErrorField) firstErrorField = 'technical';
+    }
+    
+    if (selectedSpeeds.length === 0) {
+      errors.speed = true;
+      if (!firstErrorField) firstErrorField = 'speed';
+    }
+    
+    if (!bikeType) {
+      errors.bikeType = true;
+      if (!firstErrorField) firstErrorField = 'bikeType';
+    }
+    
+    if (distance < 1) {
+      errors.distance = true;
+      if (!firstErrorField) firstErrorField = 'distance';
+    }
+    
+    if (maxParticipants < 2) {
+      errors.participants = true;
+      if (!firstErrorField) firstErrorField = 'participants';
+    }
+    
+    // If there are validation errors, set them and focus the first error field
+    if (Object.keys(errors).length > 0) {
+      setValidationErrors(errors);
+      
+      // Focus the first error field
+      setTimeout(() => {
+        if (firstErrorField === 'title' && titleRef.current) {
+          titleRef.current.focus();
+        } else if (firstErrorField === 'description' && descriptionRef.current) {
+          descriptionRef.current.focus();
+        } else if (firstErrorField === 'location' && locationInputRef.current) {
+          locationInputRef.current.focus();
+        }
+      }, 100);
+      
       return;
     }
     
     // Start submission
     setIsSubmitting(true);
     
-    // Format the ride data
-    const formattedDate = `${date.getDate().toString().padStart(2, '0')}/${(date.getMonth() + 1).toString().padStart(2, '0')}/${date.getFullYear().toString().slice(2)}`;
-    const formattedTime = `${time.getHours().toString().padStart(2, '0')}:${time.getMinutes().toString().padStart(2, '0')}`;
-    
-    // Calculate participants and maxParticipants
-    let participantsCount = 0;
-    let maxParticipantsValue = maxParticipants;
-    
-    if (participants) {
-      const parsedParticipants = participants === "5+" ? 5 : parseInt(participants);
-      participantsCount = isEditMode && rideId ? 
-        mockRides.find(r => r.id === rideId)?.participantsCount || parsedParticipants : 
-        parsedParticipants;
+    try {
+      // Format the ride data to match your backend DTO
+      const formattedDate = `${date.getDate().toString().padStart(2, '0')}/${(date.getMonth() + 1).toString().padStart(2, '0')}/${date.getFullYear()}`;
+      const formattedTime = `${time.getHours().toString().padStart(2, '0')}:${time.getMinutes().toString().padStart(2, '0')}`;
       
-      maxParticipantsValue = participants === "5+" ? 10 : parseInt(participants) * 2;
-    }
-    
-    const rideData = {
-      id: isEditMode && rideId ? rideId : Date.now().toString(),
-      title,
-      description,
-      date: formattedDate,
-      time: formattedTime,
-      location,
-      coordinates: locationCoords,
-      distance,
-      maxParticipants: maxParticipantsValue,
-      organizer: {
-        id: 'current-user',
-        name: 'דוד זלצמן', // Replace with actual user data in a real app
-        avatar: 'https://randomuser.me/api/portraits/men/32.jpg',
-        phone: '050-1234567' // Replace with actual user data in a real app
-      },
-      participantsCount,
-      rideType: selectedTypes.length ? selectedTypes[0] : filters.type,
-      difficultyLevel: selectedDifficulties.length ? selectedDifficulties[0] : filters.difficulty,
-      technicalLevel: selectedTechnicalLevels.length ? selectedTechnicalLevels[0] : filters.technical,
-      speedLevel: selectedSpeeds.length ? selectedSpeeds[0] : filters.speed,
-      bikeType
-    };
-    
-    setTimeout(() => {
+      const rideData = {
+        title: title.trim(),
+        description: description.trim(),
+        location,
+        coordinates: {
+          latitude: locationCoords!.latitude,
+          longitude: locationCoords!.longitude
+        },
+        date: formattedDate,
+        time: formattedTime,
+        distance,
+        maxParticipants,
+        rideType: selectedTypes[0],
+        difficultyLevel: selectedDifficulties[0],
+        technicalLevel: selectedTechnicalLevels[0],
+        speedLevel: selectedSpeeds[0],
+        bikeType: bikeType,
+        organizerId: user?.uid || 'current-user', // Use Firebase uid
+        organizerName: userProfile?.fullName || user?.displayName || 'רוכב חדש', // Use profile fullName first
+        organizerPhone: userProfile?.phoneNumber || '',
+        organizerAvatar: userProfile?.profileImage || user?.photoURL || ''
+      };
+      
+      console.log('🔥 PostRide - Submitting ride data:', rideData);
+      
+      const API_BASE_URL = `${Config.API_BASE_URL}/api/v1/rides`;
+      
+      let response;
+      if (isEditMode && rideId) {
+        // Update existing ride
+        response = await fetch(`${API_BASE_URL}/${rideId}`, {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(rideData),
+        });
+      } else {
+        // Create new ride
+        response = await fetch(API_BASE_URL, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(rideData),
+        });
+      }
+      
+      if (!response.ok) {
+        const errorData = await response.text();
+        console.error('🔥 PostRide - API Error:', errorData);
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      
+      const savedRide = await response.json();
+      console.log('🔥 PostRide - Ride saved successfully:', savedRide);
+      
+      // Navigate to home tab after successful creation/update
+      if (isEditMode) {
+        // If editing, go back to the previous screen
+        router.back();
+      } else {
+        // If creating new ride, redirect to home tab
+        router.replace('/(tabs)');
+      }
+      
+    } catch (error) {
+      console.error('🔥 PostRide - Error submitting ride:', error);
+      Alert.alert(
+        'שגיאה', 
+        isEditMode 
+          ? 'אירעה שגיאה בעדכון הרכיבה. אנא נסה שוב.' 
+          : 'אירעה שגיאה ביצירת הרכיבה. אנא נסה שוב.'
+      );
+    } finally {
       setIsSubmitting(false);
-      
-      // In a real app, you would send this data to your backend
-      console.log('Submitted ride data:', rideData);
-      
-      // Navigate to success screen (could be different for edit vs create)
-      router.push({
-        pathname: '/success',
-        params: { 
-          mode: isEditMode ? 'edit' : 'create',
-          title: rideData.title 
-        }
-      });
-    }, 1500);
+    }
   };
   
   // Filter tag component with icon support
@@ -655,15 +762,21 @@ export default function PostRideScreen() {
     label, 
     isSelected, 
     onPress,
-    icon
+    icon,
+    hasError
   }: { 
     label: string, 
     isSelected: boolean, 
     onPress: () => void,
-    icon?: React.ReactNode
+    icon?: React.ReactNode,
+    hasError?: boolean
   }) => (
     <TouchableOpacity
-      style={[styles.filterTag, isSelected && styles.filterTagSelected]}
+      style={[
+        styles.filterTag, 
+        isSelected && styles.filterTagSelected,
+        hasError && !isSelected && styles.filterTagError
+      ]}
       onPress={onPress}
     >
       <View style={styles.filterTagContent}>
@@ -695,6 +808,94 @@ export default function PostRideScreen() {
     </TouchableOpacity>
   );
 
+  // Mock locations for testing
+  const mockLocations = [
+    {
+      placeId: 'mock_1',
+      description: 'פארק הירקון, תל אביב',
+      mainText: 'פארק הירקון',
+      secondaryText: 'תל אביב',
+      coordinates: { latitude: 32.0993, longitude: 34.8148 }
+    },
+    {
+      placeId: 'mock_2',
+      description: 'יער בן שמן, מודיעין',
+      mainText: 'יער בן שמן',
+      secondaryText: 'מודיעין',
+      coordinates: { latitude: 31.9361, longitude: 34.9574 }
+    },
+    {
+      placeId: 'mock_3',
+      description: 'הרי ירושלים, מבשרת ציון',
+      mainText: 'הרי ירושלים',
+      secondaryText: 'מבשרת ציון',
+      coordinates: { latitude: 31.8018, longitude: 35.1149 }
+    },
+    {
+      placeId: 'mock_4',
+      description: 'טיילת תל אביב, נמל תל אביב',
+      mainText: 'טיילת תל אביב',
+      secondaryText: 'נמל תל אביב',
+      coordinates: { latitude: 32.0872, longitude: 34.7731 }
+    },
+    {
+      placeId: 'mock_5',
+      description: 'פארק פרס, חולון',
+      mainText: 'פארק פרס',
+      secondaryText: 'חולון',
+      coordinates: { latitude: 32.0123, longitude: 34.7799 }
+    },
+    {
+      placeId: 'mock_6',
+      description: 'שביל ישראל, כרמל',
+      mainText: 'שביל ישראל',
+      secondaryText: 'כרמל',
+      coordinates: { latitude: 32.7767, longitude: 35.0231 }
+    },
+    {
+      placeId: 'mock_7',
+      description: 'עמק החולה, ירושלים',
+      mainText: 'עמק החולה',
+      secondaryText: 'ירושלים',
+      coordinates: { latitude: 31.7857, longitude: 35.2007 }
+    },
+    {
+      placeId: 'mock_8',
+      description: 'פארק זכרון יעקב',
+      mainText: 'פארק זכרון יעקב',
+      secondaryText: 'זכרון יעקב',
+      coordinates: { latitude: 32.5698, longitude: 34.9438 }
+    },
+    {
+      placeId: 'mock_9',
+      description: 'שמורת עין גדי',
+      mainText: 'שמורת עין גדי',
+      secondaryText: 'ים המלח',
+      coordinates: { latitude: 31.4612, longitude: 35.3889 }
+    },
+    {
+      placeId: 'mock_10',
+      description: 'רמת הגולן, מצפה',
+      mainText: 'רמת הגולן',
+      secondaryText: 'מצפה',
+      coordinates: { latitude: 32.9347, longitude: 35.6896 }
+    },
+    {
+      placeId: 'mock_11',
+      description: 'פארק אשכול, קרית גת',
+      mainText: 'פארק אשכול',
+      secondaryText: 'קרית גת',
+      coordinates: { latitude: 31.6100, longitude: 34.7642 }
+    },
+    {
+      placeId: 'mock_12',
+      description: 'נחל אלכסנדר, נתניה',
+      mainText: 'נחל אלכסנדר',
+      secondaryText: 'נתניה',
+      coordinates: { latitude: 32.3215, longitude: 34.8532 }
+    }
+  ];
+
   const searchLocation = async (text: string) => {
     if (!text) {
       setShowResults(false);
@@ -705,33 +906,33 @@ export default function PostRideScreen() {
     setLocationStatus('loading');
     setValidLocationSelected(false);
     
-    try {
-      const response = await axios.get(PROXY_URL, {
-        params: { input: text, language: 'iw' }
-      });
-      
-      if (response.data.predictions) {
-        const results = response.data.predictions.map((item: any) => ({
-          placeId: item.place_id,
-          description: item.description,
-          mainText: item.structured_formatting.main_text,
-          secondaryText: item.structured_formatting.secondary_text
-        }));
+    // Simulate API delay
+    setTimeout(() => {
+      try {
+        // Filter mock locations based on search text
+        const filteredResults = mockLocations.filter(location => 
+          location.description.includes(text) || 
+          location.mainText.includes(text) ||
+          location.secondaryText.includes(text)
+        );
         
-        setSearchResults(results);
-        setShowResults(true);
-        setLocationStatus('none');
-      } else {
+        if (filteredResults.length > 0) {
+          setSearchResults(filteredResults);
+          setShowResults(true);
+          setLocationStatus('none');
+        } else {
+          // If no exact matches, show all locations for demo purposes
+          setSearchResults(mockLocations.slice(0, 6)); // Show first 6 results
+          setShowResults(true);
+          setLocationStatus('none');
+        }
+      } catch (error) {
+        console.error('Error in mock search:', error);
         setSearchResults([]);
         setShowResults(false);
         setLocationStatus('error');
       }
-    } catch (error) {
-      console.error('Error searching locations:', error);
-      setSearchResults([]);
-      setShowResults(false);
-      setLocationStatus('error');
-    }
+    }, 300); // Simulate network delay
   };
 
   return (
@@ -755,23 +956,28 @@ export default function PostRideScreen() {
             {/* Ride Title */}
             <View style={styles.formSection}>
               <View style={styles.sectionTitleContainer}>
-                <ThemedText style={styles.characterCount}>{title.length}/15</ThemedText>
-                <ThemedText type="defaultSemiBold" style={styles.sectionTitle}>כותרת הרכיבה</ThemedText>
+                <ThemedText style={styles.characterCount}>{title.length}/50</ThemedText>
+                <ThemedText type="defaultSemiBold" style={styles.sectionTitle}>כותרת הרכיבה *</ThemedText>
               </View>
-              <View style={styles.inputWrapper}>
+              <View style={[styles.inputWrapper, validationErrors.title && styles.inputWrapperError]}>
                 <Ionicons name="bicycle" size={20} color={Colors.light.text + '80'} style={styles.inputIcon} />
                 <TextInput
+                  ref={titleRef}
                   style={styles.input}
                   placeholder="הזן כותרת לרכיבה..."
                   placeholderTextColor={Colors.light.text + '80'}
                   value={title}
                   onChangeText={(text) => {
-                    // Limit title to 15 characters
-                    if (text.length <= 15) {
+                    // Limit title to 50 characters
+                    if (text.length <= 50) {
                       setTitle(text);
                     }
+                    // Clear validation error when user starts typing
+                    if (validationErrors.title) {
+                      setValidationErrors(prev => ({ ...prev, title: false }));
+                    }
                   }}
-                  maxLength={15}
+                  maxLength={50}
                   textAlign="right"
                 />
               </View>
@@ -780,23 +986,28 @@ export default function PostRideScreen() {
             {/* Ride Description */}
             <View style={styles.formSection}>
               <View style={styles.sectionTitleContainer}>
-                <ThemedText style={styles.characterCount}>{description.length}/50</ThemedText>
-                <ThemedText type="defaultSemiBold" style={styles.sectionTitle}>תיאור הרכיבה</ThemedText>
+                <ThemedText style={styles.characterCount}>{description.length}/200</ThemedText>
+                <ThemedText type="defaultSemiBold" style={styles.sectionTitle}>תיאור הרכיבה *</ThemedText>
               </View>
-              <View style={styles.inputWrapper}>
+              <View style={[styles.inputWrapper, validationErrors.description && styles.inputWrapperError]}>
                 <Ionicons name="document-text-outline" size={20} color={Colors.light.text + '80'} style={[styles.inputIcon, styles.textAreaIcon]} />
                 <TextInput
+                  ref={descriptionRef}
                   style={[styles.input, styles.textArea]}
                   placeholder="תאר/י את הרכיבה, נקודות עניין, דברים שחשוב לדעת..."
                   placeholderTextColor={Colors.light.text + '80'}
                   value={description}
                   onChangeText={(text) => {
-                    // Limit description to 50 characters
-                    if (text.length <= 50) {
+                    // Limit description to 200 characters
+                    if (text.length <= 200) {
                       setDescription(text);
                     }
+                    // Clear validation error when user starts typing
+                    if (validationErrors.description) {
+                      setValidationErrors(prev => ({ ...prev, description: false }));
+                    }
                   }}
-                  maxLength={50}
+                  maxLength={200}
                   multiline
                   numberOfLines={4}
                   textAlign="right"
@@ -807,13 +1018,19 @@ export default function PostRideScreen() {
             
             {/* Date and Time */}
             <View style={styles.formSection}>
-              <ThemedText type="defaultSemiBold" style={styles.sectionTitle}>תאריך ושעה</ThemedText>
+              <ThemedText type="defaultSemiBold" style={styles.sectionTitle}>תאריך ושעה *</ThemedText>
               <View style={styles.rowInputs}>
                 <TouchableOpacity 
                   style={styles.inputHalf}
-                  onPress={showTimePicker}
+                  onPress={() => {
+                    showTimePicker();
+                    // Clear validation error when user interacts
+                    if (validationErrors.time) {
+                      setValidationErrors(prev => ({ ...prev, time: false }));
+                    }
+                  }}
                 >
-                  <View style={styles.inputWrapper}>
+                  <View style={[styles.inputWrapper, validationErrors.time && styles.inputWrapperError]}>
                     <Ionicons name="time-outline" size={20} color={Colors.light.text + '80'} style={styles.inputIcon} />
                     <TextInput
                       style={styles.input}
@@ -827,9 +1044,15 @@ export default function PostRideScreen() {
                 </TouchableOpacity>
                 <TouchableOpacity 
                   style={styles.inputHalf}
-                  onPress={showDatePicker}
+                  onPress={() => {
+                    showDatePicker();
+                    // Clear validation error when user interacts
+                    if (validationErrors.date) {
+                      setValidationErrors(prev => ({ ...prev, date: false }));
+                    }
+                  }}
                 >
-                  <View style={styles.inputWrapper}>
+                  <View style={[styles.inputWrapper, validationErrors.date && styles.inputWrapperError]}>
                     <Ionicons name="calendar-outline" size={20} color={Colors.light.text + '80'} style={styles.inputIcon} />
                     <TextInput
                       style={styles.input}
@@ -875,10 +1098,10 @@ export default function PostRideScreen() {
             
             {/* Location Search Section */}
             <View style={styles.formSection}>
-              <ThemedText type="defaultSemiBold" style={styles.sectionTitle}>מיקום</ThemedText>
+              <ThemedText type="defaultSemiBold" style={styles.sectionTitle}>מיקום *</ThemedText>
               
               <View style={styles.googlePlacesContainer}>
-                <View style={styles.inputWrapper}>
+                <View style={[styles.inputWrapper, validationErrors.location && styles.inputWrapperError]}>
                   <Ionicons 
                     name="location" 
                     size={20} 
@@ -894,6 +1117,11 @@ export default function PostRideScreen() {
                     onChangeText={(text) => {
                       setLocationInput(text);
                       setValidLocationSelected(false);
+                      
+                      // Clear validation error when user starts typing
+                      if (validationErrors.location) {
+                        setValidationErrors(prev => ({ ...prev, location: false }));
+                      }
                       
                       if (text.length > 2) {
                         setLocationStatus('loading');
@@ -941,10 +1169,7 @@ export default function PostRideScreen() {
                           onPress={() => {
                             setLocation(result.description);
                             setLocationInput(result.description);
-                            setLocationCoords({
-                              latitude: 31.5 + (Math.random() * 2 - 1),
-                              longitude: 34.8 + (Math.random() * 2 - 1)
-                            });
+                            setLocationCoords(result.coordinates || null);
                             setLocationStatus('success');
                             setValidLocationSelected(true);
                             setShowResults(false);
@@ -978,14 +1203,14 @@ export default function PostRideScreen() {
             
             {/* Distance */}
             <View style={styles.formSection}>
-              <ThemedText type="defaultSemiBold" style={styles.sectionTitle}>מרחק (בק"מ)</ThemedText>
+              <ThemedText type="defaultSemiBold" style={styles.sectionTitle}>מרחק (בק"מ) *</ThemedText>
               <View style={styles.sliderContainer}>
-                <ThemedText style={styles.distanceValue}>5</ThemedText>
+                <ThemedText style={styles.distanceValue}>1</ThemedText>
                 <Slider
                   style={styles.slider}
-                  minimumValue={5}
+                  minimumValue={1}
                   maximumValue={100}
-                  step={5}
+                  step={1}
                   value={distance}
                   onValueChange={setDistance}
                   minimumTrackTintColor={Colors.light.primary}
@@ -1003,7 +1228,7 @@ export default function PostRideScreen() {
             
             {/* Participants */}
             <View style={styles.formSection}>
-              <ThemedText type="defaultSemiBold" style={styles.sectionTitle}>מספר משתתפים</ThemedText>
+              <ThemedText type="defaultSemiBold" style={styles.sectionTitle}>מספר משתתפים *</ThemedText>
               <View style={styles.participantsContainer}>
                 <Ionicons name="people-outline" size={20} color={Colors.light.text + '80'} style={styles.participantsIcon} />
                 <View style={styles.participantsOptions}>
@@ -1038,34 +1263,58 @@ export default function PostRideScreen() {
             
             {/* Ride Type */}
             <View style={styles.formSection}>
-              <ThemedText type="defaultSemiBold" style={styles.sectionTitle}>סוג רכיבה</ThemedText>
+              <ThemedText type="defaultSemiBold" style={styles.sectionTitle}>סוג רכיבה *</ThemedText>
               <View style={styles.tagsContainer}>
                 <FilterTag
                   label="כביש"
                   isSelected={selectedTypes.includes('road')}
-                  onPress={() => toggleFilter('type', 'road')}
+                  hasError={validationErrors.rideType}
+                  onPress={() => {
+                    toggleFilter('type', 'road');
+                    if (validationErrors.rideType) {
+                      setValidationErrors(prev => ({ ...prev, rideType: false }));
+                    }
+                  }}
                 />
                 <FilterTag
                   label="שטח"
                   isSelected={selectedTypes.includes('offroad')}
-                  onPress={() => toggleFilter('type', 'offroad')}
+                  hasError={validationErrors.rideType}
+                  onPress={() => {
+                    toggleFilter('type', 'offroad');
+                    if (validationErrors.rideType) {
+                      setValidationErrors(prev => ({ ...prev, rideType: false }));
+                    }
+                  }}
                 />
                 <FilterTag
                   label="שבילים"
                   isSelected={selectedTypes.includes('trails')}
-                  onPress={() => toggleFilter('type', 'trails')}
+                  hasError={validationErrors.rideType}
+                  onPress={() => {
+                    toggleFilter('type', 'trails');
+                    if (validationErrors.rideType) {
+                      setValidationErrors(prev => ({ ...prev, rideType: false }));
+                    }
+                  }}
                 />
                 <FilterTag
                   label="עירוני"
                   isSelected={selectedTypes.includes('urban')}
-                  onPress={() => toggleFilter('type', 'urban')}
+                  hasError={validationErrors.rideType}
+                  onPress={() => {
+                    toggleFilter('type', 'urban');
+                    if (validationErrors.rideType) {
+                      setValidationErrors(prev => ({ ...prev, rideType: false }));
+                    }
+                  }}
                 />
               </View>
             </View>
             
             {/* Difficulty Level */}
             <View style={styles.formSection}>
-              <ThemedText type="defaultSemiBold" style={styles.sectionTitle}>רמת קושי</ThemedText>
+              <ThemedText type="defaultSemiBold" style={styles.sectionTitle}>רמת קושי *</ThemedText>
               <View style={styles.tagsContainer}>
                 <FilterTag
                   label="קל"
@@ -1089,7 +1338,7 @@ export default function PostRideScreen() {
             <View style={styles.formSection}>
               <View style={styles.sectionTitleContainer}>
                 <MaterialCommunityIcons name="bike-fast" size={20} color={Colors.light.text + '80'} />
-                <ThemedText type="defaultSemiBold" style={styles.sectionTitle}>רמה טכנית</ThemedText>
+                <ThemedText type="defaultSemiBold" style={styles.sectionTitle}>רמה טכנית *</ThemedText>
               </View>
               <View style={styles.tagsContainer}>
                 <FilterTag
@@ -1119,7 +1368,7 @@ export default function PostRideScreen() {
             <View style={styles.formSection}>
               <View style={styles.sectionTitleContainer}>
                 <MaterialCommunityIcons name="speedometer" size={20} color={Colors.light.text + '80'} />
-                <ThemedText type="defaultSemiBold" style={styles.sectionTitle}>מהירות</ThemedText>
+                <ThemedText type="defaultSemiBold" style={styles.sectionTitle}>מהירות *</ThemedText>
               </View>
               <View style={styles.tagsContainer}>
                 <FilterTag
@@ -1142,7 +1391,7 @@ export default function PostRideScreen() {
             
             {/* Bike Type */}
             <View style={styles.formSection}>
-              <ThemedText type="defaultSemiBold" style={styles.sectionTitle}>סוג אופניים</ThemedText>
+              <ThemedText type="defaultSemiBold" style={styles.sectionTitle}>סוג אופניים *</ThemedText>
               <View style={styles.tagsContainer}>
                 <FilterTag
                   label="אנלוגי"

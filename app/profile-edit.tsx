@@ -82,7 +82,7 @@ interface UserProfile {
 }
 
 export default function ProfileEditScreen() {
-  const { user } = useAuth();
+  const { user, updateStoredProfile } = useAuth();
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
@@ -322,7 +322,7 @@ export default function ProfileEditScreen() {
         fullName,
         phoneNumber: phoneNumber.trim(),
         email: user.email || '',
-        profileImage: profileImage || userProfile?.profileImage || undefined,
+        profileImage: profileImage || userProfile?.profileImage || null,
         bikeModel: bikeModel.trim() || undefined,
         location: location.trim() || undefined,
         bio: bio.trim() || undefined,
@@ -341,6 +341,9 @@ export default function ProfileEditScreen() {
       if (response.ok) {
         const updatedProfile = await response.json();
         console.log('🔥 ProfileEdit - Profile updated successfully:', updatedProfile);
+        
+        // Update the stored profile in AuthContext
+        updateStoredProfile(updatedProfile);
         
         // Navigate back to profile with update flag (no alert)
         router.navigate({

@@ -4,17 +4,19 @@ import { RideCard } from '@/components/ride-card/ride-card';
 import { SearchBar } from '@/components/search-bar/search-bar';
 import { EmptyState } from '@/components/ui/empty-state';
 import { Colors } from '@/constants/Colors';
+import { Config } from '@/constants/Config';
 import { useAuth } from '@/contexts/AuthContext';
 import { useFilterState } from '@/hooks/use-filter-state';
 import { Ride } from '@/types/ride';
 import { Ionicons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
-import React, { useEffect, useState } from 'react';
+import { useFocusEffect, useRouter } from 'expo-router';
+import React, { useCallback, useState } from 'react';
 import { ActivityIndicator, FlatList, Image, StyleSheet, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-// API endpoint for profile
-const API_BASE_URL = 'http://localhost:8080/api/v1/profiles';
+// API endpoints
+const PROFILE_API_BASE_URL = 'http://localhost:8080/api/v1/profiles';
+const RIDES_API_BASE_URL = `${Config.API_BASE_URL}/api/v1/rides`;
 
 // Cache the banner image source to prevent re-rendering
 const BANNER_IMAGE_SOURCE = require('@/assets/images/cyclists.jpg');
@@ -30,14 +32,49 @@ interface UserProfile {
   bio?: string;
 }
 
+// Interface matching your backend RideDTO
+interface RideDTO {
+  id: number;
+  title: string;
+  description: string;
+  location: string;
+  coordinates?: {
+    latitude: number;
+    longitude: number;
+  };
+  date: string;
+  time: string;
+  distance: number;
+  maxParticipants: number;
+  rideType: string;
+  difficultyLevel: string;
+  technicalLevel: string;
+  speedLevel: string;
+  bikeType: string;
+  organizerId: string;
+  organizerName: string;
+  organizerPhone: string;
+  organizerAvatar?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+// Pagination response interface
+interface PaginationResponse {
+  content: RideDTO[];
+  totalElements: number;
+  totalPages: number;
+  page: number;
+  size: number;
+  hasNext: boolean;
+}
+
 function HomeScreenComponent() {
   const router = useRouter();
-  const { user } = useAuth();
+  const { user, userProfile } = useAuth();
   const [isFilterModalVisible, setFilterModalVisible] = useState(false);
-  const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
-  const [isLoadingProfile, setIsLoadingProfile] = useState(true);
-  const [isLoadingRides, setIsLoadingRides] = useState(false); // For future rides API
-  const [hasInitiallyLoaded, setHasInitiallyLoaded] = useState(false);
+  const [isLoadingRides, setIsLoadingRides] = useState(false);
+  const [rides, setRides] = useState<RideDTO[]>([]);
   
   const {
     filterState,
@@ -47,60 +84,42 @@ function HomeScreenComponent() {
     clearFilters
   } = useFilterState();
 
-  // Fetch user profile from backend
-  useEffect(() => {
-    const fetchUserProfile = async () => {
-      if (!user?.uid) {
-        setIsLoadingProfile(false);
-        return;
-      }
+  // Fetch rides from API
+  const fetchRides = useCallback(async () => {
+    try {
+      setIsLoadingRides(true);
+      console.log('🔥 HomeScreen - Fetching rides from API');
+      
+      // Fetch only upcoming/active rides for home screen
+      const url = `${RIDES_API_BASE_URL}?page=0&size=10&includeAll=false`;
+      console.log('🔥 HomeScreen - Fetching URL:', url);
 
-      // Only show loading spinner on initial load
-      if (!hasInitiallyLoaded) {
-        setIsLoadingProfile(true);
+      const response = await fetch(url);
+      
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
       }
-
-      try {
-        console.log('🔥 Fetching user profile for userId:', user.uid);
-        const response = await fetch(`${API_BASE_URL}/${user.uid}`);
-        
-        if (response.ok) {
-          const profile = await response.json();
-          console.log('🔥 User profile fetched successfully:', profile);
-          setUserProfile(profile);
-        } else {
-          console.log('🔥 No profile found for user, using Firebase displayName');
-          // Fallback to Firebase displayName if no profile exists
-          if (user.displayName) {
-            setUserProfile({
-              userId: user.uid,
-              fullName: user.displayName,
-              phoneNumber: '',
-              email: user.email || '',
-            });
-          }
-        }
-      } catch (error) {
-        console.error('🔥 Error fetching user profile:', error);
-        // Fallback to Firebase displayName on error
-        if (user.displayName) {
-          setUserProfile({
-            userId: user.uid,
-            fullName: user.displayName,
-            phoneNumber: '',
-            email: user.email || '',
-          });
-        }
-      } finally {
-        setIsLoadingProfile(false);
-        setHasInitiallyLoaded(true);
-      }
-    };
-
-    if (user?.uid) {
-      fetchUserProfile();
+      
+      const data: PaginationResponse = await response.json();
+      console.log('🔥 HomeScreen - API response:', data);
+      
+      setRides(data.content);
+      
+    } catch (error) {
+      console.error('🔥 HomeScreen - Error fetching rides:', error);
+      // Don't show alert on home screen, just log the error
+    } finally {
+      setIsLoadingRides(false);
     }
-  }, [user?.uid, hasInitiallyLoaded]);
+  }, []);
+
+  // Focus effect to ensure data is fetched when navigating to this tab
+  useFocusEffect(
+    useCallback(() => {
+      console.log('🔥 HomeScreen - Tab focused, fetching rides');
+      fetchRides();
+    }, [fetchRides])
+  );
 
   // Extract first name from full name
   const getFirstName = (fullName?: string): string => {
@@ -115,11 +134,30 @@ function HomeScreenComponent() {
     return fullName.trim() || 'רוכב';
   };
 
-  // Check if any API calls are still loading
-  const isLoading = isLoadingProfile || isLoadingRides;
-
-  // No rides available - empty array instead of mock data
-  const filteredRides: Ride[] = [];
+  // Convert RideDTO to Ride format for the RideCard component
+  const filteredRides: Ride[] = rides.map(rideDto => ({
+    id: rideDto.id.toString(),
+    title: rideDto.title,
+    description: rideDto.description,
+    location: rideDto.location,
+    date: rideDto.date,
+    time: rideDto.time,
+    distance: rideDto.distance,
+    maxParticipants: rideDto.maxParticipants,
+    participantsCount: 0, // Default to 0, could be enhanced later
+    rideType: rideDto.rideType as any, // Type assertion for now
+    difficultyLevel: rideDto.difficultyLevel as any,
+    technicalLevel: rideDto.technicalLevel as any,
+    speedLevel: rideDto.speedLevel as any,
+    bikeType: rideDto.bikeType as any,
+    organizer: {
+      id: rideDto.organizerId,
+      name: rideDto.organizerName,
+      avatar: rideDto.organizerAvatar || '',
+      phone: rideDto.organizerPhone
+    },
+    coordinates: rideDto.coordinates
+  }));
 
   // No active filters since we're not using filter helpers
   const isFiltersActive = false;
@@ -153,9 +191,9 @@ function HomeScreenComponent() {
   );
 
   const renderLoadingSpinner = () => (
-    <View style={styles.loadingContainer}>
+    <View style={styles.ridesLoadingContainer}>
       <ActivityIndicator size="large" color={Colors.light.primary} />
-      <ThemedText style={styles.loadingText}>טוען נתונים...</ThemedText>
+      <ThemedText style={styles.loadingText}>טוען רכיבות...</ThemedText>
     </View>
   );
 
@@ -164,7 +202,9 @@ function HomeScreenComponent() {
       {/* Welcome Section */}
       <View style={styles.welcomeSection}>
         <ThemedText style={styles.welcomeSmallText}>ברוך הבא,</ThemedText>
-        <ThemedText style={styles.welcomeNameText}>{getDisplayName(userProfile?.fullName)}</ThemedText>
+        <ThemedText style={styles.welcomeNameText}>
+          {getDisplayName(userProfile?.fullName || user?.displayName || '')}
+        </ThemedText>
       </View>
 
       {/* Featured Banner */}
@@ -190,45 +230,31 @@ function HomeScreenComponent() {
         hasActiveFilters={isFiltersActive}
       />
 
-      {/* Add Button - Always visible */}
-      <View style={[
-        styles.addButtonContainer,
-        { justifyContent: filteredRides.length > 0 ? 'flex-start' : 'center' }
-      ]}>
+      {/* Add Button and Section Title Row */}
+      <View style={styles.addButtonContainer}>
         <TouchableOpacity style={styles.addButton} onPress={handleAddRidePress}>
           <Ionicons name="add" size={20} color="#FFFFFF" />
           <ThemedText style={styles.addButtonText}>הוסף רכיבה</ThemedText>
         </TouchableOpacity>
-      </View>
-
-      {/* Section Title - Only when there are rides */}
-      {filteredRides.length > 0 && (
-        <View style={styles.sectionTitleContainer}>
+        
+        {/* Section Title - Only when there are rides */}
+        {filteredRides.length > 0 && !isLoadingRides && (
           <ThemedText style={styles.sectionTitle}>רכיבות קרובות</ThemedText>
-        </View>
-      )}
+        )}
+      </View>
     </View>
   );
-
-  // Show loading spinner while any API calls are in progress
-  if (isLoading) {
-    return (
-      <SafeAreaView style={styles.container} edges={['bottom', 'left', 'right']}>
-        {renderLoadingSpinner()}
-      </SafeAreaView>
-    );
-  }
 
   return (
     <SafeAreaView style={styles.container} edges={['bottom', 'left', 'right']}>
       <FlatList
-        data={filteredRides}
+        data={isLoadingRides ? [] : filteredRides}
         renderItem={renderRideCard}
         keyExtractor={(item) => item.id}
         ListHeaderComponent={renderHeader}
-        ListEmptyComponent={renderEmptyState}
+        ListEmptyComponent={isLoadingRides ? renderLoadingSpinner : renderEmptyState}
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={filteredRides.length === 0 ? styles.emptyContent : undefined}
+        contentContainerStyle={styles.contentContainer}
       />
 
       <FilterModal
@@ -318,6 +344,8 @@ const styles = StyleSheet.create({
   },
   addButtonContainer: {
     flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
     paddingHorizontal: 16,
     marginBottom: 16,
   },
@@ -335,31 +363,26 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600',
   },
-  sectionTitleContainer: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    paddingHorizontal: 16,
-    marginBottom: 16,
-  },
   sectionTitle: {
     fontSize: 20,
     fontWeight: 'bold',
+    textAlign: 'right',
   },
-  emptyContent: {
+  contentContainer: {
     flexGrow: 1,
   },
-  loadingContainer: {
+  ridesLoadingContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
   },
-      loadingText: {
-      color: Colors.light.primary,
-      fontSize: 16,
-      fontWeight: 'bold',
-      marginTop: 16,
-    },
-  });
+  loadingText: {
+    color: Colors.light.primary,
+    fontSize: 16,
+    fontWeight: 'bold',
+    marginTop: 16,
+  },
+});
 
 // Export memoized component to prevent unnecessary re-renders
 export const HomeScreen = React.memo(HomeScreenComponent); 

@@ -1,12 +1,12 @@
 import { ThemedText } from '@/components/ThemedText';
 import { Colors } from '@/constants/Colors';
-import { mockRides } from '@/data/mock-rides';
-import { Ride } from '@/types/ride';
+import { Config } from '@/constants/Config';
+import { useAuth } from '@/contexts/AuthContext';
 import { Ionicons } from '@expo/vector-icons';
-import { router } from 'expo-router';
-import { useEffect, useState } from 'react';
+import { router, useFocusEffect } from 'expo-router';
+import React, { useCallback, useState } from 'react';
 import {
-  Alert,
+  ActivityIndicator,
   FlatList,
   StyleSheet,
   TouchableOpacity,
@@ -14,78 +14,90 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-// Extended interface for rides with expiration status
-interface RideWithExpiration extends Ride {
-  isExpired?: boolean;
+type FilterType = 'all' | 'future' | 'my';
+
+// Interface matching your backend RideDTO
+interface RideDTO {
+  id: number;
+  title: string;
+  description: string;
+  location: string;
+  coordinates?: {
+    latitude: number;
+    longitude: number;
+  };
+  date: string;
+  time: string;
+  distance: number;
+  maxParticipants: number;
+  rideType: string;
+  difficultyLevel: string;
+  technicalLevel: string;
+  speedLevel: string;
+  bikeType: string;
+  organizerId: string;
+  organizerName: string;
+  organizerPhone: string;
+  organizerAvatar?: string;
+  createdAt: string;
+  updatedAt: string;
 }
 
-type FilterType = 'all' | 'future';
+// Pagination response interface
+interface PaginationResponse {
+  content: RideDTO[];
+  totalElements: number;
+  totalPages: number;
+  page: number;
+  size: number;
+  hasNext: boolean;
+}
+
+const RIDES_API_BASE_URL = `${Config.API_BASE_URL}/api/v1/rides`;
 
 export default function RidesScreen() {
-  const [myRides, setMyRides] = useState<RideWithExpiration[]>([]);
-  const [activeFilter, setActiveFilter] = useState<FilterType>('all');
+  const { user } = useAuth();
+  const [activeFilter, setActiveFilter] = useState<FilterType>('my');
+  const [rides, setRides] = useState<RideDTO[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
   
-  // Simulate current user ID - in a real app, this would come from authentication
-  const currentUserId = 'user1';  // This should match one of the organizer IDs in mockRides
-  
-  useEffect(() => {
-    // Get current date for accurate comparison
-    const currentDate = new Date();
-    console.log('Current date:', currentDate.toISOString());
-    
-    // Filter rides for the current user and check if they're expired
-    const userRides = mockRides
-      .filter(ride => ride.organizer.id === currentUserId)
-      .map(ride => {
-        // Parse the date parts correctly
-        const [day, month, year] = ride.date.split('/').map(Number);
-        const [hours, minutes] = ride.time.split(':').map(Number);
-        
-        // Create a date object with the correct year (assuming yy format in original data)
-        // Our dates are in format dd/mm/yy
-        const fullYear = year < 100 ? 2000 + year : year;
-        const rideDate = new Date(fullYear, month - 1, day, hours, minutes);
-        
-        console.log(`Ride: ${ride.title}, Date: ${rideDate.toISOString()}, Expired: ${rideDate < currentDate}`);
-        
-        // Compare with current date
-        const isExpired = rideDate < currentDate;
-        
-        return {
-          ...ride,
-          isExpired
-        };
-      });
-    
-    // Sort rides: future first (by date), then past (by date, most recent first)
-    const sortedRides = userRides.sort((a, b) => {
-      // If one is expired and the other isn't, the non-expired comes first
-      if (a.isExpired && !b.isExpired) return 1;
-      if (!a.isExpired && b.isExpired) return -1;
+  // Fetch rides from API
+  const fetchRides = useCallback(async () => {
+    try {
+      setIsLoading(true);
+      console.log('🔥 RidesScreen - Fetching rides from API');
       
-      // If both are either expired or not expired, sort by date
-      const [dayA, monthA, yearA] = a.date.split('/').map(Number);
-      const [dayB, monthB, yearB] = b.date.split('/').map(Number);
+      // Fetch all rides (including past ones for filtering)
+      const url = `${RIDES_API_BASE_URL}?page=0&size=100&includeAll=true`;
+      console.log('🔥 RidesScreen - Fetching URL:', url);
+
+      const response = await fetch(url);
       
-      const fullYearA = yearA < 100 ? 2000 + yearA : yearA;
-      const fullYearB = yearB < 100 ? 2000 + yearB : yearB;
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
       
-      const dateA = new Date(fullYearA, monthA - 1, dayA);
-      const dateB = new Date(fullYearB, monthB - 1, dayB);
+      const data: PaginationResponse = await response.json();
+      console.log('🔥 RidesScreen - API response:', data);
       
-      // For non-expired rides, sort by earliest first
-      if (!a.isExpired) return dateA.getTime() - dateB.getTime();
+      setRides(data.content);
       
-      // For expired rides, sort by most recent first
-      return dateB.getTime() - dateA.getTime();
-    });
-    
-    setMyRides(sortedRides);
-    
-    // Log the filtered rides to help debug
-    console.log('Future rides:', sortedRides.filter(ride => !ride.isExpired).length);
-    console.log('Expired rides:', sortedRides.filter(ride => ride.isExpired).length);
+    } catch (error) {
+      console.error('🔥 RidesScreen - Error fetching rides:', error);
+      // Fallback to mock data on error
+      setRides([]);
+    } finally {
+      setIsLoading(false);
+    }
   }, []);
+
+  // Focus effect to ensure data is fetched when navigating to this tab
+  useFocusEffect(
+    useCallback(() => {
+      console.log('🔥 RidesScreen - Tab focused, fetching rides');
+      fetchRides();
+    }, [fetchRides])
+  );
   
   const handleEditRide = (rideId: string) => {
     router.push({
@@ -98,26 +110,8 @@ export default function RidesScreen() {
   };
   
   const handleDeleteRide = (rideId: string) => {
-    Alert.alert(
-      "מחיקת רכיבה",
-      "האם אתה בטוח שברצונך למחוק את הרכיבה?",
-      [
-        {
-          text: "לא",
-          style: "cancel"
-        },
-        {
-          text: "כן",
-          style: "destructive",
-          onPress: () => {
-            // In a real app, you would delete from the server
-            // Here we'll just remove it from the local state
-            setMyRides(prev => prev.filter(ride => ride.id !== rideId));
-          }
-        }
-      ],
-      { cancelable: true }
-    );
+    // Simple mock delete - just log for now
+    console.log('Delete ride:', rideId);
   };
   
   const handleViewRideDetails = (rideId: string) => {
@@ -127,48 +121,83 @@ export default function RidesScreen() {
     });
   };
 
-  // Filter rides based on the active filter
-  const filteredRides = activeFilter === 'all' 
-    ? myRides 
-    : myRides.filter(ride => !ride.isExpired);
+  const handleCreateRide = () => {
+    router.push('/post-ride');
+  };
+
+  // Filter rides based on the active filter with expiration status
+  const filteredRides = (() => {
+    const currentDate = new Date();
+    
+    const ridesWithExpiration = rides.map(ride => {
+      // Parse the date parts correctly
+      const [day, month, year] = ride.date.split('/').map(Number);
+      const [hours, minutes] = ride.time.split(':').map(Number);
+      
+      // Create a date object with the correct year
+      const fullYear = year < 100 ? 2000 + year : year;
+      const rideDate = new Date(fullYear, month - 1, day, hours, minutes);
+      
+      const isExpired = rideDate < currentDate;
+      
+      return {
+        ...ride,
+        isExpired
+      };
+    });
+
+    if (activeFilter === 'all') {
+      return ridesWithExpiration;
+    } else if (activeFilter === 'future') {
+      return ridesWithExpiration.filter(ride => !ride.isExpired);
+    } else {
+      // 'my' filter shows rides where current user is the organizer
+      return ridesWithExpiration.filter(ride => {
+        return user?.uid === ride.organizerId;
+      });
+    }
+  })();
   
-  const renderRideItem = ({ item }: { item: RideWithExpiration }) => (
-    <View style={[
-      styles.rideItem, 
-      item.isExpired && styles.expiredRideItem
-    ]}>
-      <View style={styles.actionsContainer}>
-        {item.isExpired && (
-          <View style={styles.expiredBanner}>
-            <Ionicons name="time-outline" size={14} color="#fff" />
-            <ThemedText style={styles.expiredBannerText}>פג תוקף</ThemedText>
-          </View>
-        )}
-        {!item.isExpired && (
-          <TouchableOpacity 
-            style={styles.actionButton} 
-            onPress={() => handleEditRide(item.id)}
-          >
-            <Ionicons name="create-outline" size={22} color={Colors.light.primary} />
-          </TouchableOpacity>
-        )}
-        <TouchableOpacity 
-          style={styles.actionButton} 
-          onPress={() => handleDeleteRide(item.id)}
-        >
-          <Ionicons name="trash-outline" size={22} color="#ff3b30" />
-        </TouchableOpacity>
-      </View>
+  const renderRideItem = ({ item }: { item: RideDTO & { isExpired?: boolean } }) => {
+    // Check if current user is the organizer of this ride
+    // This compares the Firebase UID with the organizerId stored in the backend
+    const isCurrentUserOrganizer = user?.uid === item.organizerId;
+    
+    return (
+      <View style={[
+        styles.rideItem, 
+        item.isExpired && styles.expiredRideItem
+      ]}>
+        <View style={styles.actionsContainer}>
+          {item.isExpired ? (
+            <View style={styles.expiredBanner}>
+              <Ionicons name="time-outline" size={14} color="#fff" />
+              <ThemedText style={styles.expiredBannerText}>פג תוקף</ThemedText>
+            </View>
+          ) : isCurrentUserOrganizer ? (
+            <>
+              <TouchableOpacity 
+                style={styles.actionButton} 
+                onPress={() => handleEditRide(item.id.toString())}
+              >
+                <Ionicons name="create-outline" size={22} color={Colors.light.primary} />
+              </TouchableOpacity>
+              <TouchableOpacity 
+                style={styles.actionButton} 
+                onPress={() => handleDeleteRide(item.id.toString())}
+              >
+                <Ionicons name="trash-outline" size={22} color="#ff3b30" />
+              </TouchableOpacity>
+            </>
+          ) : null}
+        </View>
       
       <TouchableOpacity 
         style={styles.rideContent}
-        onPress={() => handleViewRideDetails(item.id)}
+        onPress={() => handleViewRideDetails(item.id.toString())}
         activeOpacity={0.7}
       >
-        <ThemedText style={[
-          styles.rideTitle,
-          item.isExpired && styles.expiredText
-        ]}>
+        <ThemedText style={styles.rideTitle}>
           {item.title}
         </ThemedText>
         <View style={styles.rideDetails}>
@@ -176,13 +205,10 @@ export default function RidesScreen() {
             <Ionicons 
               name="calendar-outline" 
               size={16} 
-              color={item.isExpired ? Colors.light.text + "80" : Colors.light.text + "99"} 
+              color={Colors.light.text + "99"} 
               style={styles.icon} 
             />
-            <ThemedText style={[
-              styles.dateTime,
-              item.isExpired && styles.expiredDetailText
-            ]}>
+            <ThemedText style={styles.dateTime}>
               {item.date}
             </ThemedText>
           </View>
@@ -190,80 +216,129 @@ export default function RidesScreen() {
             <Ionicons 
               name="time-outline" 
               size={16} 
-              color={item.isExpired ? Colors.light.text + "80" : Colors.light.text + "99"} 
+              color={Colors.light.text + "99"} 
               style={styles.icon} 
             />
-            <ThemedText style={[
-              styles.dateTime,
-              item.isExpired && styles.expiredDetailText
-            ]}>
+            <ThemedText style={styles.dateTime}>
               {item.time}
+            </ThemedText>
+          </View>
+        </View>
+        
+        <View style={styles.rideDetails}>
+          <View style={styles.locationContainer}>
+            <Ionicons 
+              name="location-outline" 
+              size={16} 
+              color={Colors.light.text + "99"} 
+              style={styles.icon} 
+            />
+            <ThemedText style={styles.location} numberOfLines={1}>
+              {item.location}
+            </ThemedText>
+          </View>
+        </View>
+        
+        <View style={styles.rideDetails}>
+          <View style={styles.distanceContainer}>
+            <Ionicons 
+              name="bicycle-outline" 
+              size={16} 
+              color={Colors.light.text + "99"} 
+              style={styles.icon} 
+            />
+            <ThemedText style={styles.distance}>
+              {item.distance} ק"מ
+            </ThemedText>
+          </View>
+          <View style={styles.participantsContainer}>
+            <Ionicons 
+              name="people-outline" 
+              size={16} 
+              color={Colors.light.text + "99"} 
+              style={styles.icon} 
+            />
+            <ThemedText style={styles.participants}>
+              עד {item.maxParticipants} משתתפים
             </ThemedText>
           </View>
         </View>
       </TouchableOpacity>
     </View>
   );
-  
+};
+
+  const renderEmptyState = () => (
+    <View style={styles.emptyContainer}>
+      <Ionicons name="bicycle-outline" size={64} color={Colors.light.text + "40"} />
+      <ThemedText style={styles.emptyTitle}>
+        {activeFilter === 'my' ? 'אין לך רכיבות שיצרת עדיין' : 'אין רכיבות להצגה'}
+      </ThemedText>
+      <ThemedText style={styles.emptyDescription}>
+        {activeFilter === 'my' 
+          ? 'צור את הרכיבה הראשונה שלך ומצא שותפים לרכיבה'
+          : 'נסה לשנות את המסננים או לחזור מאוחר יותר'
+        }
+      </ThemedText>
+      {activeFilter === 'my' && (
+        <TouchableOpacity style={styles.createButton} onPress={handleCreateRide}>
+          <Ionicons name="add" size={20} color="white" />
+          <ThemedText style={styles.createButtonText}>צור רכיבה חדשה</ThemedText>
+        </TouchableOpacity>
+      )}
+    </View>
+  );
+
+  const renderLoadingSpinner = () => (
+    <View style={styles.loadingContainer}>
+      <ActivityIndicator size="large" color={Colors.light.primary} />
+      <ThemedText style={styles.loadingText}>טוען רכיבות...</ThemedText>
+    </View>
+  );
+
   return (
     <SafeAreaView style={styles.container} edges={['bottom']}>
+      {/* Filter Tabs */}
       <View style={styles.filterContainer}>
-        <View style={styles.toggleContainer}>
-          <TouchableOpacity
-            style={[
-              styles.toggleButton,
-              styles.toggleButtonLeft,
-              activeFilter === 'all' && styles.activeToggleButton
-            ]}
-            onPress={() => setActiveFilter('all')}
-          >
-            <ThemedText style={[
-              styles.filterText,
-              activeFilter === 'all' && styles.activeFilterText
-            ]}>
-              הכל
-            </ThemedText>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[
-              styles.toggleButton,
-              styles.toggleButtonRight,
-              activeFilter === 'future' && styles.activeToggleButton
-            ]}
-            onPress={() => setActiveFilter('future')}
-          >
-            <ThemedText style={[
-              styles.filterText,
-              activeFilter === 'future' && styles.activeFilterText
-            ]}>
-              רכיבות עתידיות
-            </ThemedText>
-          </TouchableOpacity>
-        </View>
+        <TouchableOpacity
+          style={[styles.filterTab, activeFilter === 'all' && styles.activeFilterTab]}
+          onPress={() => setActiveFilter('all')}
+        >
+          <ThemedText style={[styles.filterText, activeFilter === 'all' && styles.activeFilterText]}>
+            הכל
+          </ThemedText>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.filterTab, activeFilter === 'future' && styles.activeFilterTab]}
+          onPress={() => setActiveFilter('future')}
+        >
+          <ThemedText style={[styles.filterText, activeFilter === 'future' && styles.activeFilterText]}>
+            עתידיות
+          </ThemedText>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.filterTab, activeFilter === 'my' && styles.activeFilterTab]}
+          onPress={() => setActiveFilter('my')}
+        >
+          <ThemedText style={[styles.filterText, activeFilter === 'my' && styles.activeFilterText]}>
+            שלי
+          </ThemedText>
+        </TouchableOpacity>
       </View>
 
-      <FlatList
-        data={filteredRides}
-        renderItem={renderRideItem}
-        keyExtractor={item => item.id}
-        contentContainerStyle={styles.listContent}
-        ListEmptyComponent={
-          <View style={styles.emptyContainer}>
-            <Ionicons name="calendar" size={64} color={Colors.light.text + "40"} />
-            <ThemedText style={styles.emptyText}>
-              {activeFilter === 'future' 
-                ? 'אין לך רכיבות עתידיות' 
-                : 'אין לך רכיבות'}
-            </ThemedText>
-            <TouchableOpacity 
-              style={styles.createButton}
-              onPress={() => router.push('/post-ride')}
-            >
-              <ThemedText style={styles.createButtonText}>צור רכיבה חדשה</ThemedText>
-            </TouchableOpacity>
-          </View>
-        }
-      />
+      {/* Rides List */}
+      {isLoading ? (
+        renderLoadingSpinner()
+      ) : (
+        <FlatList
+          data={filteredRides}
+          renderItem={renderRideItem}
+          keyExtractor={(item) => item.id.toString()}
+          contentContainerStyle={styles.listContent}
+          showsVerticalScrollIndicator={false}
+          ListEmptyComponent={renderEmptyState}
+        />
+      )}
     </SafeAreaView>
   );
 }
@@ -273,44 +348,36 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#f5f5f5',
   },
+  title: {
+    marginHorizontal: 16,
+    marginTop: 12,
+    marginBottom: 8,
+    textAlign: 'right',
+  },
   filterContainer: {
+    flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
     marginHorizontal: 16,
     marginTop: 12,
     marginBottom: 8,
   },
-  toggleContainer: {
-    flexDirection: 'row',
-    borderRadius: 20,
-    overflow: 'hidden',
-    borderWidth: 1,
-    borderColor: '#ddd',
-  },
-  toggleButton: {
+  filterTab: {
     paddingVertical: 8,
     paddingHorizontal: 16,
     backgroundColor: '#f5f5f5',
-    minWidth: 100,
+    marginRight: 8,
+    borderRadius: 16,
+    minWidth: 80,
     alignItems: 'center',
   },
-  toggleButtonLeft: {
-    borderTopLeftRadius: 0,
-    borderBottomLeftRadius: 0,
-    borderTopRightRadius: 20,
-    borderBottomRightRadius: 20,
-  },
-  toggleButtonRight: {
-    borderTopRightRadius: 0,
-    borderBottomRightRadius: 0,
-    borderTopLeftRadius: 20,
-    borderBottomLeftRadius: 20,
-  },
-  activeToggleButton: {
+  activeFilterTab: {
     backgroundColor: Colors.light.primary,
   },
   filterText: {
     fontSize: 13,
     fontWeight: '500',
+    color: Colors.light.text,
   },
   activeFilterText: {
     color: 'white',
@@ -318,7 +385,17 @@ const styles = StyleSheet.create({
   listContent: {
     padding: 16,
     paddingBottom: 80,
-    paddingTop: 8,
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingTop: 64,
+  },
+  loadingText: {
+    marginTop: 16,
+    fontSize: 16,
+    color: Colors.light.text,
   },
   rideItem: {
     backgroundColor: 'white',
@@ -332,8 +409,6 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.05,
     shadowRadius: 2,
     elevation: 2,
-    position: 'relative',
-    overflow: 'hidden',
   },
   expiredRideItem: {
     backgroundColor: '#f5f5f5',
@@ -368,27 +443,20 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   expiredBannerText: {
-    color: 'white',
+    color: '#fff',
     fontSize: 10,
-    fontWeight: 'bold',
+    fontWeight: '600',
     marginLeft: 4,
   },
   rideContent: {
     flex: 1,
     paddingLeft: 8,
-    position: 'relative',
   },
   rideTitle: {
     fontSize: 18,
     fontWeight: 'bold',
     marginBottom: 8,
     textAlign: 'right',
-  },
-  expiredText: {
-    color: Colors.light.text + "99",
-  },
-  expiredDetailText: {
-    color: Colors.light.text + "80",
   },
   rideDetails: {
     flexDirection: 'row',
@@ -400,6 +468,21 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginLeft: 16,
   },
+  locationContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginLeft: 16,
+  },
+  distanceContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginLeft: 16,
+  },
+  participantsContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginLeft: 16,
+  },
   icon: {
     marginRight: 4,
   },
@@ -407,33 +490,51 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: Colors.light.text + "99",
   },
-  expiredBadge: {
-    backgroundColor: '#e0e0e0',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 4,
-    alignSelf: 'flex-end',
-    marginTop: 8,
+  location: {
+    fontSize: 14,
+    color: Colors.light.text + "99",
+  },
+  distance: {
+    fontSize: 14,
+    color: Colors.light.text + "99",
+  },
+  participants: {
+    fontSize: 14,
+    color: Colors.light.text + "99",
   },
   emptyContainer: {
-    alignItems: 'center',
+    flex: 1,
     justifyContent: 'center',
-    padding: 40,
+    alignItems: 'center',
+    paddingHorizontal: 32,
+    paddingTop: 64,
   },
-  emptyText: {
-    fontSize: 16,
+  emptyTitle: {
+    fontSize: 20,
+    fontWeight: '600',
+    textAlign: 'center',
     marginTop: 16,
+    marginBottom: 8,
+  },
+  emptyDescription: {
+    fontSize: 16,
+    textAlign: 'center',
+    color: Colors.light.text + 'AA',
+    lineHeight: 24,
     marginBottom: 24,
-    color: Colors.light.text + "80",
   },
   createButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
     backgroundColor: Colors.light.primary,
+    paddingHorizontal: 20,
     paddingVertical: 12,
-    paddingHorizontal: 24,
     borderRadius: 8,
+    gap: 8,
   },
   createButtonText: {
     color: 'white',
+    fontSize: 16,
     fontWeight: '600',
   },
 }); 
