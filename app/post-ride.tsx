@@ -10,17 +10,17 @@ import Constants from 'expo-constants';
 import { router, Stack, useLocalSearchParams } from 'expo-router';
 import React, { useContext, useEffect, useRef, useState } from 'react';
 import {
-  ActivityIndicator,
-  Alert,
-  Keyboard,
-  KeyboardAvoidingView,
-  Platform,
-  ScrollView,
-  StyleSheet,
-  TextInput,
-  TouchableOpacity,
-  TouchableWithoutFeedback,
-  View
+    ActivityIndicator,
+    Alert,
+    Keyboard,
+    KeyboardAvoidingView,
+    Platform,
+    ScrollView,
+    StyleSheet,
+    TextInput,
+    TouchableOpacity,
+    TouchableWithoutFeedback,
+    View
 } from 'react-native';
 import DateTimePickerModal from 'react-native-modal-datetime-picker';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -740,7 +740,7 @@ export default function PostRideScreen() {
         // If editing, go back to the previous screen
         router.back();
       } else {
-        // If creating new ride, redirect to home tab
+        // If creating new ride, redirect to home tab (ראשי)
         router.replace('/(tabs)');
       }
       

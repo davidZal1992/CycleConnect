@@ -36,10 +36,11 @@ export function EmptyState({
 const styles = StyleSheet.create({
   emptyContainer: {
     flex: 1,
-    justifyContent: 'center',
+    justifyContent: 'flex-start',
     alignItems: 'center',
     paddingHorizontal: 32,
-    paddingVertical: 64,
+    paddingTop: 80,
+    paddingBottom: 32,
   },
   emptyTitle: {
     fontSize: 20,

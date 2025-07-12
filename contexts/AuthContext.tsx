@@ -29,18 +29,56 @@ const AuthContext = createContext<AuthContextType>({
   isLoading: true,
 });
 
+// Add rides cache interface
+interface RideDTO {
+  id: number;
+  title: string;
+  description: string;
+  location: string;
+  coordinates?: {
+    latitude: number;
+    longitude: number;
+  };
+  date: string;
+  time: string;
+  distance: number;
+  maxParticipants: number;
+  rideType: string;
+  difficultyLevel: string;
+  technicalLevel: string;
+  speedLevel: string;
+  bikeType: string;
+  organizerId: string;
+  organizerName: string;
+  organizerPhone: string;
+  organizerAvatar?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+interface RidesState {
+  data: RideDTO[];
+  timestamp: number;
+  isLoading: boolean;
+  error: string | null;
+}
+
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User>(null);
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [authRetryCount, setAuthRetryCount] = useState(0);
 
   // API endpoint for profiles
   const PROFILE_API_BASE_URL = 'http://localhost:8080/api/v1/profiles';
 
   useEffect(() => {
     console.log('🔥 Setting up auth state listener...');
+    let retryTimeout: ReturnType<typeof setTimeout>;
+
     const unsubscribe = auth().onAuthStateChanged((user) => {
       console.log('🔥 Auth state changed:', !!user);
+      
       if (user) {
         console.log('🔥 User details:', {
           displayName: user.displayName,
@@ -48,16 +86,52 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           emailVerified: user.emailVerified,
           uid: user.uid,
         });
+        // Reset retry count on successful auth
+        setAuthRetryCount(0);
       } else {
         console.log('🔥 User is null - logged out');
-        setUserProfile(null); // Clear profile when user logs out
+        
+        // Check if this is an unexpected logout (we had a user before)
+        if (authRetryCount < 3) {
+          console.log('🔥 Unexpected logout detected, attempting to restore auth state...');
+          setAuthRetryCount(prev => prev + 1);
+          
+          // Try to restore the current user after a short delay
+          retryTimeout = setTimeout(() => {
+            const currentUser = auth().currentUser;
+            if (currentUser) {
+              console.log('🔥 Auth state restored successfully');
+              setUser(currentUser);
+              return;
+            }
+            
+            // If still no user, check if this is emulator instability
+            if (authRetryCount < 3) {
+              console.log('🔥 Auth emulator might be unstable, keeping current state for now');
+              return;
+            }
+            
+            // After 3 retries, accept the logout
+            console.log('🔥 Confirmed logout after retries');
+            setUserProfile(null);
+          }, 1000);
+        } else {
+          console.log('🔥 Confirmed logout after max retries');
+          setUserProfile(null);
+        }
       }
+      
       setUser(user);
       setIsLoading(false);
     });
 
-    return unsubscribe;
-  }, []);
+    return () => {
+      unsubscribe();
+      if (retryTimeout) {
+        clearTimeout(retryTimeout);
+      }
+    };
+  }, [authRetryCount]);
 
   // Fetch profile when user changes
   useEffect(() => {
@@ -97,6 +171,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const handleSignOut = async () => {
     try {
       console.log('🔥 Starting Firebase signOut...');
+      // Reset retry count before signing out
+      setAuthRetryCount(0);
       await auth().signOut();
       setUserProfile(null); // Clear profile on sign out
       console.log('🔥 Firebase signOut completed');

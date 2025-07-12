@@ -1,6 +1,6 @@
 import { Colors } from '@/constants/Colors';
 import { Ionicons } from '@expo/vector-icons';
-import React from 'react';
+import React, { useEffect, useRef } from 'react';
 import { StyleSheet, TextInput, TouchableOpacity, View } from 'react-native';
 
 interface SearchBarProps {
@@ -9,25 +9,42 @@ interface SearchBarProps {
   onFilterPress: () => void;
   placeholder?: string;
   hasActiveFilters?: boolean;
+  maintainFocus?: boolean;
 }
 
-export function SearchBar({ 
+function SearchBarComponent({ 
   value, 
   onChangeText, 
   onFilterPress, 
   placeholder = "חפש רכיבות...",
-  hasActiveFilters = false 
+  hasActiveFilters = false,
+  maintainFocus = false
 }: SearchBarProps) {
+  const inputRef = useRef<TextInput>(null);
+
+  // Maintain focus when search results change
+  useEffect(() => {
+    if (maintainFocus && inputRef.current) {
+      // Keep focus on the input to prevent typing interruption
+      inputRef.current.focus();
+    }
+  }, [maintainFocus]);
+
   return (
     <View style={styles.searchContainer}>
       <View style={styles.searchInputContainer}>
         <Ionicons name="search" size={20} color={Colors.light.icon} style={styles.searchIcon} />
         <TextInput
+          ref={inputRef}
           style={styles.searchInput}
           placeholder={placeholder}
           value={value}
           onChangeText={onChangeText}
           placeholderTextColor={Colors.light.icon}
+          autoFocus={false}
+          blurOnSubmit={false}
+          returnKeyType="search"
+          selectTextOnFocus={false}
         />
       </View>
       <TouchableOpacity 
@@ -46,6 +63,17 @@ export function SearchBar({
     </View>
   );
 }
+
+// Export memoized component to prevent unnecessary re-renders
+export const SearchBar = React.memo(SearchBarComponent, (prevProps, nextProps) => {
+  // Custom comparison to prevent re-renders unless these specific props change
+  return (
+    prevProps.value === nextProps.value &&
+    prevProps.hasActiveFilters === nextProps.hasActiveFilters &&
+    prevProps.placeholder === nextProps.placeholder &&
+    prevProps.maintainFocus === nextProps.maintainFocus
+  );
+});
 
 const styles = StyleSheet.create({
   searchContainer: {

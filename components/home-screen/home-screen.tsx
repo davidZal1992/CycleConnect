@@ -1,4 +1,5 @@
 import { ThemedText } from '@/components/ThemedText';
+import { StaticBanner } from '@/components/common/StaticBanner';
 import { FilterModal } from '@/components/filter-modal/filter-modal';
 import { RideCard } from '@/components/ride-card/ride-card';
 import { SearchBar } from '@/components/search-bar/search-bar';
@@ -6,20 +7,38 @@ import { EmptyState } from '@/components/ui/empty-state';
 import { Colors } from '@/constants/Colors';
 import { Config } from '@/constants/Config';
 import { useAuth } from '@/contexts/AuthContext';
+import { useDebounceSearch } from '@/hooks/use-debounced-search';
 import { useFilterState } from '@/hooks/use-filter-state';
-import { Ride } from '@/types/ride';
-import { Ionicons } from '@expo/vector-icons';
+import { FilterState, Ride } from '@/types/ride';
+import { createEmptyFilterState } from '@/utils/filter-helpers';
 import { useFocusEffect, useRouter } from 'expo-router';
-import React, { useCallback, useState } from 'react';
-import { ActivityIndicator, FlatList, Image, StyleSheet, TouchableOpacity, View } from 'react-native';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { ActivityIndicator, FlatList, StyleSheet, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 // API endpoints
-const PROFILE_API_BASE_URL = 'http://localhost:8080/api/v1/profiles';
 const RIDES_API_BASE_URL = `${Config.API_BASE_URL}/api/v1/rides`;
 
-// Cache the banner image source to prevent re-rendering
-const BANNER_IMAGE_SOURCE = require('@/assets/images/cyclists.jpg');
+// Global cache for rides data
+interface RidesCache {
+  data: RideDTO[];
+  timestamp: number;
+  isLoading: boolean;
+}
+
+const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes in milliseconds
+const ridesCache: RidesCache = {
+  data: [],
+  timestamp: 0,
+  isLoading: false
+};
+
+// Global function to invalidate cache (can be called from anywhere)
+export const invalidateRidesCache = () => {
+  console.log('🔥 HomeScreen - Cache invalidated externally');
+  ridesCache.timestamp = 0;
+  ridesCache.data = [];
+};
 
 interface UserProfile {
   userId: string;
@@ -59,21 +78,163 @@ interface RideDTO {
   updatedAt: string;
 }
 
-// Pagination response interface
+// Pagination response interface - matches Spring Boot Page response
 interface PaginationResponse {
   content: RideDTO[];
   totalElements: number;
   totalPages: number;
-  page: number;
+  number: number; // This is the page number in Spring Boot
   size: number;
-  hasNext: boolean;
+  first: boolean;
+  last: boolean;
+  numberOfElements: number;
+  empty: boolean;
 }
+
+// Separate component for search results to prevent search bar re-renders
+const SearchResultsList = React.memo(({ 
+  rides, 
+  searchResults, 
+  isLoading, 
+  hasSearchQuery, 
+  isFiltersActive,
+  searchError,
+  searchQuery,
+  onRefresh,
+  isRefreshing 
+}: {
+  rides: RideDTO[];
+  searchResults: any;
+  isLoading: boolean;
+  hasSearchQuery: boolean;
+  isFiltersActive: boolean;
+  searchError: string | null;
+  searchQuery: string;
+  onRefresh: () => void;
+  isRefreshing: boolean;
+}) => {
+  
+  // Convert DTO to Ride format
+  const convertRideDto = useCallback((rideDto: RideDTO): Ride => ({
+    id: rideDto.id.toString(),
+    title: rideDto.title,
+    description: rideDto.description,
+    location: rideDto.location,
+    date: rideDto.date,
+    time: rideDto.time,
+    distance: rideDto.distance,
+    maxParticipants: rideDto.maxParticipants,
+    participantsCount: 0,
+    rideType: rideDto.rideType as any,
+    difficultyLevel: rideDto.difficultyLevel as any,
+    technicalLevel: rideDto.technicalLevel as any,
+    speedLevel: rideDto.speedLevel as any,
+    bikeType: rideDto.bikeType as any,
+    organizer: {
+      id: rideDto.organizerId,
+      name: rideDto.organizerName,
+      avatar: rideDto.organizerAvatar || '',
+      phone: rideDto.organizerPhone
+    },
+    coordinates: rideDto.coordinates
+  }), []);
+
+  // Get rides to display - ISOLATED from search bar
+  const ridesToDisplay: Ride[] = useMemo(() => {
+    console.log('🔥 SearchResultsList - Computing rides to display');
+    console.log('🔥 SearchResultsList - Has search query:', hasSearchQuery);
+    console.log('🔥 SearchResultsList - Search results:', searchResults);
+    console.log('🔥 SearchResultsList - Default rides:', rides.length);
+
+    // If we have search results (either from search query or filters), use them
+    if (searchResults && searchResults.content) {
+      console.log('🔥 SearchResultsList - Using backend search results:', searchResults.content.length);
+      return searchResults.content.map(convertRideDto);
+    } else if (hasSearchQuery) {
+      // If there's a search query but no results yet, show empty
+      console.log('🔥 SearchResultsList - No search results yet, showing empty');
+      return [];
+    } else {
+      // Use default fetched rides
+      console.log('🔥 SearchResultsList - Using default rides:', rides.length);
+      return rides.map(convertRideDto);
+    }
+  }, [hasSearchQuery, searchResults, rides, convertRideDto]);
+
+  const renderRideCard = useCallback(({ item }: { item: Ride }) => (
+    <RideCard {...item} />
+  ), []);
+
+  const renderEmptyState = useCallback(() => {
+    // Show search error if exists
+    if (searchError) {
+      return (
+        <EmptyState
+          title="שגיאה בחיפוש"
+          description={`שגיאה: ${searchError}. נסה שוב.`}
+          iconName="alert-circle-outline"
+        />
+      );
+    }
+
+    // Different empty state for search/filters vs no rides
+    if (hasSearchQuery || isFiltersActive) {
+      return (
+        <EmptyState
+          title="לא נמצאו תוצאות"
+          description="לא נמצאו רכיבות מתאימות. אנא הזן מיקום או כותרת"
+          iconName="search-outline"
+        />
+      );
+    }
+    
+    return (
+      <EmptyState
+        title="אין רכיבות זמינות"
+        description="כרגע אין רכיבות פעילות באזור. השתמש בכפתור למעלה כדי להוסיף רכיבה חדשה!"
+        iconName="bicycle-outline"
+      />
+    );
+  }, [hasSearchQuery, searchQuery, searchError, isFiltersActive]);
+
+  const renderLoadingSpinner = useCallback(() => (
+    <View style={styles.ridesLoadingContainer}>
+      <ActivityIndicator size="large" color={Colors.light.primary} />
+      <ThemedText style={styles.loadingText}>
+        {hasSearchQuery ? 'מחפש רכיבות...' : 'טוען רכיבות...'}
+      </ThemedText>
+    </View>
+  ), [hasSearchQuery]);
+
+  return (
+    <View style={styles.resultsContainer}>
+      <FlatList
+        data={ridesToDisplay}
+        renderItem={renderRideCard}
+        keyExtractor={(item) => item.id}
+        contentContainerStyle={ridesToDisplay.length === 0 ? styles.emptyListContainer : styles.listContainer}
+        showsVerticalScrollIndicator={false}
+        ListEmptyComponent={isLoading ? renderLoadingSpinner : renderEmptyState}
+        refreshing={isRefreshing}
+        onRefresh={onRefresh}
+        removeClippedSubviews={true}
+        maxToRenderPerBatch={5}
+        windowSize={10}
+        initialNumToRender={5}
+        keyboardShouldPersistTaps="handled"
+        keyboardDismissMode="none"
+        style={styles.flatListStyle}
+      />
+    </View>
+  );
+});
 
 function HomeScreenComponent() {
   const router = useRouter();
   const { user, userProfile } = useAuth();
   const [isFilterModalVisible, setFilterModalVisible] = useState(false);
   const [isLoadingRides, setIsLoadingRides] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const [rides, setRides] = useState<RideDTO[]>([]);
   
   const {
@@ -84,42 +245,110 @@ function HomeScreenComponent() {
     clearFilters
   } = useFilterState();
 
-  // Fetch rides from API
-  const fetchRides = useCallback(async () => {
+  // Separate state for applied filters (only updated when user clicks "סנן")
+  const [appliedFilterState, setAppliedFilterState] = useState<FilterState>(() => 
+    createEmptyFilterState()
+  );
+
+  // Use backend search only when there's a search query
+  const hasSearchQuery = useMemo(() => 
+    filterState.searchQuery.trim().length > 0, 
+    [filterState.searchQuery]
+  );
+
+  // Create combined filter state for search (current search query + applied filters)
+  const searchFilterState = useMemo(() => ({
+    ...appliedFilterState,
+    searchQuery: filterState.searchQuery // Use current search query, not applied
+  }), [appliedFilterState, filterState.searchQuery]);
+
+  const { 
+    searchResults, 
+    isLoading: isSearchLoading, 
+    error: searchError 
+  } = useDebounceSearch({
+    searchQuery: filterState.searchQuery,
+    filterState: searchFilterState, // Use combined state
+    debounceMs: 500
+  });
+
+  // Fetch rides from API - NO CACHING (for debugging)
+  const fetchRides = useCallback(async (forceRefresh = false) => {
+    const timestamp = new Date().toLocaleTimeString();
+    console.log(`🔥 HomeScreen - [${timestamp}] ALWAYS fetching fresh data (cache disabled)`);
+    
+    // Prevent multiple simultaneous requests
+    if (ridesCache.isLoading) {
+      console.log('🔥 HomeScreen - Already loading, skipping request');
+      return;
+    }
+    
     try {
+      ridesCache.isLoading = true;
       setIsLoadingRides(true);
-      console.log('🔥 HomeScreen - Fetching rides from API');
+      console.log('🔥 HomeScreen - Fetching fresh rides from API');
       
       // Fetch only upcoming/active rides for home screen
       const url = `${RIDES_API_BASE_URL}?page=0&size=10&includeAll=false`;
       console.log('🔥 HomeScreen - Fetching URL:', url);
 
       const response = await fetch(url);
+      console.log('🔥 HomeScreen - Response status:', response.status);
       
       if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
+        const errorText = await response.text();
+        console.error('🔥 HomeScreen - Error response:', errorText);
+        throw new Error(`HTTP error! status: ${response.status}, message: ${errorText}`);
       }
       
       const data: PaginationResponse = await response.json();
       console.log('🔥 HomeScreen - API response:', data);
+      console.log('🔥 HomeScreen - Total rides fetched:', data.content.length);
+      console.log('🔥 HomeScreen - Rides data:', data.content);
+      
+      // Update cache (disabled for debugging)
+      ridesCache.data = data.content;
+      ridesCache.timestamp = Date.now();
       
       setRides(data.content);
       
     } catch (error) {
       console.error('🔥 HomeScreen - Error fetching rides:', error);
-      // Don't show alert on home screen, just log the error
+      
+      // If we have cached data, use it even if stale
+      if (ridesCache.data.length > 0) {
+        console.log('🔥 HomeScreen - Using stale cached data due to error');
+        setRides(ridesCache.data);
+      }
     } finally {
+      ridesCache.isLoading = false;
       setIsLoadingRides(false);
     }
   }, []);
 
+  // Load rides on component mount, use cached data for subsequent navigations
+  useEffect(() => {
+    console.log('🔥 HomeScreen - Component mounted, loading rides');
+    fetchRides();
+  }, [fetchRides]);
+
   // Focus effect to ensure data is fetched when navigating to this tab
   useFocusEffect(
     useCallback(() => {
-      console.log('🔥 HomeScreen - Tab focused, fetching rides');
-      fetchRides();
+      const timestamp = new Date().toLocaleTimeString();
+      console.log(`🔥 HomeScreen - [${timestamp}] ========= HOME TAB FOCUSED =========`);
+      // Always fetch fresh data (cache disabled for debugging)
+      fetchRides(true);
     }, [fetchRides])
   );
+
+  // Method to force refresh (can be called from pull-to-refresh or manual refresh)
+  const handleRefresh = useCallback(async () => {
+    console.log('🔥 HomeScreen - Manual refresh triggered');
+    setIsRefreshing(true);
+    await fetchRides(true); // Force refresh
+    setIsRefreshing(false);
+  }, [fetchRides]);
 
   // Extract first name from full name
   const getFirstName = (fullName?: string): string => {
@@ -134,127 +363,118 @@ function HomeScreenComponent() {
     return fullName.trim() || 'רוכב';
   };
 
-  // Convert RideDTO to Ride format for the RideCard component
-  const filteredRides: Ride[] = rides.map(rideDto => ({
-    id: rideDto.id.toString(),
-    title: rideDto.title,
-    description: rideDto.description,
-    location: rideDto.location,
-    date: rideDto.date,
-    time: rideDto.time,
-    distance: rideDto.distance,
-    maxParticipants: rideDto.maxParticipants,
-    participantsCount: 0, // Default to 0, could be enhanced later
-    rideType: rideDto.rideType as any, // Type assertion for now
-    difficultyLevel: rideDto.difficultyLevel as any,
-    technicalLevel: rideDto.technicalLevel as any,
-    speedLevel: rideDto.speedLevel as any,
-    bikeType: rideDto.bikeType as any,
-    organizer: {
-      id: rideDto.organizerId,
-      name: rideDto.organizerName,
-      avatar: rideDto.organizerAvatar || '',
-      phone: rideDto.organizerPhone
-    },
-    coordinates: rideDto.coordinates
-  }));
+  // Determine loading state
+  const isLoading = useMemo(() => {
+    if (hasSearchQuery) {
+      return isSearchLoading;
+    }
+    return isLoadingRides;
+  }, [hasSearchQuery, isSearchLoading, isLoadingRides]);
 
-  // No active filters since we're not using filter helpers
-  const isFiltersActive = false;
+  // Check if filters are active (search query exists OR filters are applied) - memoized
+  const isFiltersActive = useMemo(() => {
+    const hasFilters = appliedFilterState.selectedTypes.length > 0 ||
+                      appliedFilterState.selectedDifficulties.length > 0 ||
+                      appliedFilterState.selectedTechnicalLevels.length > 0 ||
+                      appliedFilterState.selectedSpeeds.length > 0 ||
+                      appliedFilterState.selectedBikeTypes.length > 0 ||
+                      appliedFilterState.distanceRange < 100;
+    
+    return hasSearchQuery || hasFilters;
+  }, [hasSearchQuery, appliedFilterState]);
 
-  const handleFilterPress = () => {
+  const handleFilterPress = useCallback(() => {
     setFilterModalVisible(true);
-  };
+  }, []);
 
-  const handleApplyFilters = () => {
+  const handleApplyFilters = useCallback(() => {
     setFilterModalVisible(false);
-  };
+    // Apply the current filter selections to trigger search
+    setAppliedFilterState({ ...filterState });
+  }, [filterState]);
 
-  const handleClearFilters = () => {
+  const handleClearFilters = useCallback(() => {
     clearFilters();
-  };
+    // Also clear applied filters to stop search
+    setAppliedFilterState(createEmptyFilterState());
+  }, [clearFilters]);
 
-  const handleAddRidePress = () => {
+  const handleAddRidePress = useCallback(() => {
     router.push('/post-ride');
-  };
+  }, [router]);
 
-  const renderRideCard = ({ item }: { item: Ride }) => (
-    <RideCard {...item} />
-  );
-
-  const renderEmptyState = () => (
-    <EmptyState
-      title="אין רכיבות זמינות"
-      description="כרגע אין רכיבות פעילות באזור. השתמש בכפתור למעלה כדי להוסיף רכיבה חדשה!"
-      iconName="bicycle-outline"
-    />
-  );
-
-  const renderLoadingSpinner = () => (
-    <View style={styles.ridesLoadingContainer}>
-      <ActivityIndicator size="large" color={Colors.light.primary} />
-      <ThemedText style={styles.loadingText}>טוען רכיבות...</ThemedText>
+  // Memoized welcome section to prevent banner re-renders
+  const welcomeSection = useMemo(() => (
+    <View style={styles.welcomeSection}>
+      <ThemedText style={styles.welcomeSmallText}>ברוך הבא,</ThemedText>
+      <ThemedText style={styles.welcomeNameText}>
+        {getDisplayName(userProfile?.fullName || user?.displayName || '')}
+      </ThemedText>
     </View>
-  );
+  ), [userProfile?.fullName, user?.displayName]);
 
-  const renderHeader = () => (
-    <View style={styles.headerContainer}>
-      {/* Welcome Section */}
-      <View style={styles.welcomeSection}>
-        <ThemedText style={styles.welcomeSmallText}>ברוך הבא,</ThemedText>
-        <ThemedText style={styles.welcomeNameText}>
-          {getDisplayName(userProfile?.fullName || user?.displayName || '')}
-        </ThemedText>
-      </View>
-
-      {/* Featured Banner */}
-      <View style={styles.bannerContainer}>
-        <Image
-          source={BANNER_IMAGE_SOURCE}
-          style={styles.bannerImage}
-          resizeMode="cover"
-        />
-        <View style={styles.bannerOverlay}>
-          <View style={styles.bannerTextContainer}>
-            <ThemedText style={styles.bannerMainText}>מעכשיו</ThemedText>
-            <ThemedText style={styles.bannerSubText}>מפסיקים לרכב לבד</ThemedText>
-          </View>
-        </View>
-      </View>
-
-      {/* Search Bar */}
+  // Memoized search section - ISOLATED from results
+  const searchSection = useMemo(() => (
+    <View style={styles.searchSection}>
       <SearchBar
         value={filterState.searchQuery}
         onChangeText={setSearch}
         onFilterPress={handleFilterPress}
         hasActiveFilters={isFiltersActive}
+        placeholder="חפש רכיבות לפי כותרת או מיקום..."
+        maintainFocus={hasSearchQuery}
       />
-
-      {/* Add Button and Section Title Row */}
-      <View style={styles.addButtonContainer}>
+      
+      {/* Add Button, Section Title and Refresh Button Row */}
+      <View style={styles.titleRefreshContainer}>
+        {/* Add Button - NO ICON */}
         <TouchableOpacity style={styles.addButton} onPress={handleAddRidePress}>
-          <Ionicons name="add" size={20} color="#FFFFFF" />
           <ThemedText style={styles.addButtonText}>הוסף רכיבה</ThemedText>
         </TouchableOpacity>
         
-        {/* Section Title - Only when there are rides */}
-        {filteredRides.length > 0 && !isLoadingRides && (
-          <ThemedText style={styles.sectionTitle}>רכיבות קרובות</ThemedText>
-        )}
+        {/* Section Title */}
+        <ThemedText style={styles.sectionTitleInline}>
+          {isFiltersActive ? 'תוצאות חיפוש' : 'רכיבות קרובות'}
+        </ThemedText>
+        
       </View>
     </View>
-  );
+  ), [
+    filterState.searchQuery, 
+    setSearch, 
+    handleFilterPress, 
+    isFiltersActive, 
+    hasSearchQuery, 
+    handleAddRidePress,
+    handleRefresh, 
+    isRefreshing
+  ]);
 
   return (
-    <SafeAreaView style={styles.container} edges={['bottom', 'left', 'right']}>
-      <FlatList
-        data={isLoadingRides ? [] : filteredRides}
-        renderItem={renderRideCard}
-        keyExtractor={(item) => item.id}
-        ListHeaderComponent={renderHeader}
-        ListEmptyComponent={isLoadingRides ? renderLoadingSpinner : renderEmptyState}
-        showsVerticalScrollIndicator={false}
-        contentContainerStyle={styles.contentContainer}
+    <SafeAreaView style={styles.container} edges={['bottom']}>
+      {/* Fixed header section that doesn't re-render */}
+      <View style={styles.headerContainer}>
+        {/* Welcome Section */}
+        {welcomeSection}
+
+        {/* Featured Banner */}
+        <StaticBanner />
+
+        {/* Search Section */}
+        {searchSection}
+      </View>
+
+      {/* Results section - isolated from search bar */}
+      <SearchResultsList
+        rides={rides}
+        searchResults={searchResults}
+        isLoading={isLoading}
+        hasSearchQuery={hasSearchQuery}
+        isFiltersActive={isFiltersActive}
+        searchError={searchError}
+        searchQuery={filterState.searchQuery}
+        onRefresh={handleRefresh}
+        isRefreshing={isRefreshing}
       />
 
       <FilterModal
@@ -276,14 +496,14 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.light.background,
   },
   headerContainer: {
-    paddingBottom: 16,
+    paddingBottom: 8,
     paddingTop: 0,
+    backgroundColor: Colors.light.background,
   },
   welcomeSection: {
     paddingHorizontal: 16,
-    paddingTop: 0,
-    paddingBottom: 16,
-    marginTop: 8,
+    paddingTop: 4,
+    paddingBottom: 4,
   },
   welcomeSmallText: {
     fontSize: 16,
@@ -297,90 +517,80 @@ const styles = StyleSheet.create({
     textAlign: 'right',
     marginBottom: 4,
   },
-  subtitleText: {
-    fontSize: 16,
-    color: Colors.light.icon,
-    textAlign: 'right',
+  searchSection: {
+    paddingBottom: 8,
   },
-  bannerContainer: {
-    marginHorizontal: 16,
-    marginBottom: 16,
-    borderRadius: 12,
-    overflow: 'hidden',
-    height: 200,
-    position: 'relative',
+
+  refreshButton: {
+    padding: 8,
+    borderRadius: 20,
+    backgroundColor: Colors.light.background,
+    borderWidth: 1,
+    borderColor: Colors.light.border,
   },
-  bannerImage: {
-    width: '100%',
-    height: '100%',
+  refreshButtonDisabled: {
+    opacity: 0.5,
   },
-  bannerOverlay: {
-    position: 'absolute',
-    top: 0,
-    bottom: 0,
-    left: 0,
-    right: 0,
-    backgroundColor: 'rgba(0, 0, 0, 0.4)',
-    padding: 16,
-    justifyContent: 'flex-end',
+  refreshSpinner: {
+    marginLeft: 8,
   },
-  bannerTextContainer: {
-    flexDirection: 'column',
-    alignItems: 'center',
+  resultsContainer: {
+    flex: 1,
+    backgroundColor: Colors.light.background,
   },
-  bannerMainText: {
-    color: '#FFFFFF',
-    fontSize: 28,
-    fontWeight: '300',
-    textAlign: 'center',
-    marginBottom: 2,
-  },
-  bannerSubText: {
-    color: '#FFFFFF',
-    fontSize: 20,
-    fontWeight: 'bold',
-    textAlign: 'center',
-    opacity: 0.95,
-  },
-  addButtonContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: 16,
-    marginBottom: 16,
-  },
-  addButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: Colors.light.primary,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 8,
-    gap: 4,
-  },
-  addButtonText: {
-    color: '#FFFFFF',
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  sectionTitle: {
-    fontSize: 20,
+  sectionTitleInline: {
+    fontSize: 18,
     fontWeight: 'bold',
     textAlign: 'right',
+    flex: 1,
+    color: Colors.light.text,
+    marginHorizontal: 8,
+    paddingRight: 24,
   },
-  contentContainer: {
+  listContainer: {
     flexGrow: 1,
+    paddingBottom: 20,
+  },
+  emptyListContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    minHeight: 400,
+  },
+  flatListStyle: {
+    flex: 1,
   },
   ridesLoadingContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
+    minHeight: 200,
   },
   loadingText: {
     color: Colors.light.primary,
     fontSize: 16,
     fontWeight: 'bold',
     marginTop: 16,
+  },
+  titleRefreshContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    marginTop: 4,
+  },
+  addButton: {
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    backgroundColor: Colors.light.primary,
+    borderRadius: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  addButtonText: {
+    color: Colors.light.background,
+    fontSize: 14,
+    fontWeight: 'bold',
   },
 });
 

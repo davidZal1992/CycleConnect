@@ -6,14 +6,14 @@ import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import {
-  ActivityIndicator,
-  Alert,
-  Image,
-  Linking,
-  ScrollView,
-  StyleSheet,
-  TouchableOpacity,
-  View
+    ActivityIndicator,
+    Alert,
+    Image,
+    Linking,
+    ScrollView,
+    StyleSheet,
+    TouchableOpacity,
+    View
 } from 'react-native';
 import MapView, { Marker } from 'react-native-maps';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -294,22 +294,24 @@ export default function RideDetailScreen() {
       <SafeAreaView style={styles.container} edges={['bottom']}>
         <ScrollView style={styles.scrollView}>
           <View style={styles.header}>
-            {isOrganizer && (
-              <View style={styles.headerActionButtons}>
-                <TouchableOpacity 
-                  style={styles.headerActionButton}
-                  onPress={handleEditRide}
-                >
-                  <Ionicons name="create-outline" size={20} color={Colors.light.primary} />
-                </TouchableOpacity>
-                <TouchableOpacity 
-                  style={styles.headerActionButton}
-                  onPress={handleDeleteRide}
-                >
-                  <Ionicons name="trash-outline" size={20} color="#ff3b30" />
-                </TouchableOpacity>
-              </View>
-            )}
+            <View style={styles.headerActionButtons}>
+              {isOrganizer ? (
+                <>
+                  <TouchableOpacity 
+                    style={styles.headerActionButton}
+                    onPress={handleEditRide}
+                  >
+                    <Ionicons name="create-outline" size={20} color={Colors.light.primary} />
+                  </TouchableOpacity>
+                  <TouchableOpacity 
+                    style={styles.headerActionButton}
+                    onPress={handleDeleteRide}
+                  >
+                    <Ionicons name="trash-outline" size={20} color="#ff3b30" />
+                  </TouchableOpacity>
+                </>
+              ) : null}
+            </View>
             <ThemedText type="title" style={styles.title}>{ride.title}</ThemedText>
             <View style={styles.headerSpacer} />
           </View>

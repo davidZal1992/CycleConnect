@@ -6,11 +6,11 @@ import { Ionicons } from '@expo/vector-icons';
 import { router, useFocusEffect } from 'expo-router';
 import React, { useCallback, useState } from 'react';
 import {
-  ActivityIndicator,
-  FlatList,
-  StyleSheet,
-  TouchableOpacity,
-  View
+    ActivityIndicator,
+    FlatList,
+    StyleSheet,
+    TouchableOpacity,
+    View
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -43,14 +43,17 @@ interface RideDTO {
   updatedAt: string;
 }
 
-// Pagination response interface
+// Pagination response interface - matches Spring Boot Page response
 interface PaginationResponse {
   content: RideDTO[];
   totalElements: number;
   totalPages: number;
-  page: number;
+  number: number; // This is the page number in Spring Boot
   size: number;
-  hasNext: boolean;
+  first: boolean;
+  last: boolean;
+  numberOfElements: number;
+  empty: boolean;
 }
 
 const RIDES_API_BASE_URL = `${Config.API_BASE_URL}/api/v1/rides`;
@@ -60,25 +63,37 @@ export default function RidesScreen() {
   const [activeFilter, setActiveFilter] = useState<FilterType>('my');
   const [rides, setRides] = useState<RideDTO[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
   
   // Fetch rides from API
-  const fetchRides = useCallback(async () => {
+  const fetchRides = useCallback(async (isRefresh = false) => {
     try {
-      setIsLoading(true);
-      console.log('🔥 RidesScreen - Fetching rides from API');
+      if (isRefresh) {
+        setIsRefreshing(true);
+      } else {
+        setIsLoading(true);
+      }
+      const timestamp = new Date().toLocaleTimeString();
+      console.log(`🔥 RidesScreen - [${timestamp}] Fetching rides from API`, isRefresh ? '(refresh)' : '(initial)');
       
       // Fetch all rides (including past ones for filtering)
       const url = `${RIDES_API_BASE_URL}?page=0&size=100&includeAll=true`;
       console.log('🔥 RidesScreen - Fetching URL:', url);
 
       const response = await fetch(url);
+      console.log('🔥 RidesScreen - Response status:', response.status);
+      console.log('🔥 RidesScreen - Response headers:', response.headers);
       
       if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
+        const errorText = await response.text();
+        console.error('🔥 RidesScreen - Error response:', errorText);
+        throw new Error(`HTTP error! status: ${response.status}, message: ${errorText}`);
       }
       
       const data: PaginationResponse = await response.json();
       console.log('🔥 RidesScreen - API response:', data);
+      console.log('🔥 RidesScreen - Total rides fetched:', data.content.length);
+      console.log('🔥 RidesScreen - Rides data:', data.content);
       
       setRides(data.content);
       
@@ -87,15 +102,28 @@ export default function RidesScreen() {
       // Fallback to mock data on error
       setRides([]);
     } finally {
-      setIsLoading(false);
+      if (isRefresh) {
+        setIsRefreshing(false);
+      } else {
+        setIsLoading(false);
+      }
     }
   }, []);
+
+  // Handle pull-to-refresh
+  const handleRefresh = useCallback(() => {
+    console.log('🔥 RidesScreen - Manual refresh triggered');
+    fetchRides(true);
+  }, [fetchRides]);
 
   // Focus effect to ensure data is fetched when navigating to this tab
   useFocusEffect(
     useCallback(() => {
-      console.log('🔥 RidesScreen - Tab focused, fetching rides');
-      fetchRides();
+      const timestamp = new Date().toLocaleTimeString();
+      console.log(`🔥 RidesScreen - [${timestamp}] ========= RIDES TAB FOCUSED =========`);
+      console.log('🔥 RidesScreen - Current rides count:', rides.length);
+      // Force fresh fetch every time
+      fetchRides(false);
     }, [fetchRides])
   );
   
@@ -127,6 +155,10 @@ export default function RidesScreen() {
 
   // Filter rides based on the active filter with expiration status
   const filteredRides = (() => {
+    console.log('🔥 RidesScreen - Filtering rides. Total rides:', rides.length);
+    console.log('🔥 RidesScreen - Active filter:', activeFilter);
+    console.log('🔥 RidesScreen - Current user UID:', user?.uid);
+    
     const currentDate = new Date();
     
     const ridesWithExpiration = rides.map(ride => {
@@ -140,22 +172,30 @@ export default function RidesScreen() {
       
       const isExpired = rideDate < currentDate;
       
+      console.log(`🔥 RidesScreen - Ride "${ride.title}": organizerId=${ride.organizerId}, isExpired=${isExpired}`);
+      
       return {
         ...ride,
         isExpired
       };
     });
 
+    let filtered;
     if (activeFilter === 'all') {
-      return ridesWithExpiration;
+      filtered = ridesWithExpiration;
     } else if (activeFilter === 'future') {
-      return ridesWithExpiration.filter(ride => !ride.isExpired);
+      filtered = ridesWithExpiration.filter(ride => !ride.isExpired);
     } else {
       // 'my' filter shows rides where current user is the organizer
-      return ridesWithExpiration.filter(ride => {
-        return user?.uid === ride.organizerId;
+      filtered = ridesWithExpiration.filter(ride => {
+        const isMyRide = user?.uid === ride.organizerId;
+        console.log(`🔥 RidesScreen - Checking if ride "${ride.title}" is mine: ${isMyRide} (${user?.uid} === ${ride.organizerId})`);
+        return isMyRide;
       });
     }
+    
+    console.log('🔥 RidesScreen - Filtered rides count:', filtered.length);
+    return filtered;
   })();
   
   const renderRideItem = ({ item }: { item: RideDTO & { isExpired?: boolean } }) => {
@@ -324,6 +364,19 @@ export default function RidesScreen() {
             שלי
           </ThemedText>
         </TouchableOpacity>
+        
+        {/* Manual Refresh Button */}
+        <TouchableOpacity
+          style={styles.refreshButton}
+          onPress={handleRefresh}
+          disabled={isRefreshing}
+        >
+          <Ionicons 
+            name={isRefreshing ? "refresh" : "refresh-outline"} 
+            size={20} 
+            color={isRefreshing ? Colors.light.primary : Colors.light.text} 
+          />
+        </TouchableOpacity>
       </View>
 
       {/* Rides List */}
@@ -337,6 +390,8 @@ export default function RidesScreen() {
           contentContainerStyle={styles.listContent}
           showsVerticalScrollIndicator={false}
           ListEmptyComponent={renderEmptyState}
+          onRefresh={handleRefresh}
+          refreshing={isRefreshing}
         />
       )}
     </SafeAreaView>
@@ -381,6 +436,16 @@ const styles = StyleSheet.create({
   },
   activeFilterText: {
     color: 'white',
+  },
+  refreshButton: {
+    padding: 8,
+    borderRadius: 16,
+    backgroundColor: '#f5f5f5',
+    marginLeft: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+    minWidth: 36,
+    minHeight: 36,
   },
   listContent: {
     padding: 16,
