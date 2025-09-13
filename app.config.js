@@ -2,6 +2,12 @@ import 'dotenv/config';
 
 export default {
   expo: {
+    extra: {
+      "eas": {
+        "projectId": "eecb061f-706b-4b01-b3a2-f17de4587980"
+      }
+    },
+    owner:"davidzal1992",
     name: "CycleConnect",
     slug: "cycle-connect",
     version: "1.0.0",
@@ -19,10 +25,7 @@ export default {
     ],
     ios: {
       supportsTablet: true,
-      bundleIdentifier: "com.cycleconnect.app",
-      associatedDomains: [
-        "applinks:dev-lwik063shdh4q48o.us.auth0.com"
-      ]
+      bundleIdentifier: "com.cycleconnect.app"
     },
     android: {
       adaptiveIcon: {
@@ -61,11 +64,5 @@ export default {
       typedRoutes: true
     },
     schemes: ["cycleconnect", "exp"],
-    extra: {
-      proxyUrl: process.env.NGROK_URL ? `${process.env.NGROK_URL}/places-proxy/autocomplete` : 'http://172.28.129.120:3000/places-proxy/autocomplete',
-      eas: {
-        projectId: "your-project-id"
-      }
-    }
   }
 }; 

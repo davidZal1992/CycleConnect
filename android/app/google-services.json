@@ -1,0 +1,54 @@
+{
+  "project_info": {
+    "project_number": "696545960135",
+    "project_id": "cycleconnect-3681d",
+    "storage_bucket": "cycleconnect-3681d.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:696545960135:android:f10ea5452e182462e5dee2",
+        "android_client_info": {
+          "package_name": "com.cycleconnect.app"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "696545960135-k33ih0dd4g7ehadjnub14a7k9rk04tab.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.cycleconnect.app",
+            "certificate_hash": "5e8f16062ea3cd2c4a0d547876baa6f38cabf625"
+          }
+        },
+        {
+          "client_id": "696545960135-g8nibvriabrglh7bu3ld7a2llicnk6rh.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyC514mP97w74dkPokO_xXDvN30n7c_1uM4"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "696545960135-g8nibvriabrglh7bu3ld7a2llicnk6rh.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "696545960135-crhdd2fi9ngj1j4jp5af0vrao7jspenv.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.davidzal1992.CycleConnect"
+              }
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

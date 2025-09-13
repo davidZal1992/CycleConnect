@@ -1,9 +1,11 @@
 import { Colors } from "@/constants/Colors";
+import { auth } from "@/constants/firebase-config";
 import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from 'expo-haptics';
 import { useRouter } from "expo-router";
+import { createUserWithEmailAndPassword, updateProfile } from 'firebase/auth';
 import React, { useState } from "react";
-import { StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
+import { Alert, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
 
 interface RegisterFormProps {
   email: string;
@@ -26,6 +28,7 @@ export function RegisterForm({
   const [nameFocused, setNameFocused] = useState(false);
   const [emailFocused, setEmailFocused] = useState(false);
   const [passwordFocused, setPasswordFocused] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
   const router = useRouter();
   
   const primaryColor = Colors.light.primary;
@@ -39,11 +42,66 @@ export function RegisterForm({
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
   };
 
-  const handleRegister = () => {
-    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    // In a real app, we would register with a backend
-    alert("ההרשמה הצליחה!\nברוכים הבאים ל-CycleConnect!");
-    router.push("/profile-creation");
+  const handleRegister = async () => {
+    if (!email || !password || !name) {
+      Alert.alert('שגיאה', 'אנא מלא את כל השדות');
+      return;
+    }
+
+    if (password.length < 6) {
+      Alert.alert('שגיאה', 'הסיסמה חייבת להכיל לפחות 6 תווים');
+      return;
+    }
+
+    setIsLoading(true);
+    
+    try {
+      const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+      const user = userCredential.user;
+      
+      // Update the user profile with the name
+      await updateProfile(user, {
+        displayName: name
+      });
+      
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      Alert.alert(
+        'ההרשמה הצליחה!', 
+        `ברוך הבא ${name}! החשבון שלך נוצר בהצלחה.`,
+        [
+          {
+            text: 'המשך',
+            onPress: () => router.push("/profile-creation")
+          }
+        ]
+      );
+    } catch (error: any) {
+      console.error('Registration error:', error);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      
+      let errorMessage = 'שגיאה בהרשמה';
+      
+      switch (error.code) {
+        case 'auth/email-already-in-use':
+          errorMessage = 'כתובת האימייל כבר בשימוש. אנא התחבר או השתמש באימייל אחר.';
+          break;
+        case 'auth/invalid-email':
+          errorMessage = 'כתובת אימייל לא תקינה';
+          break;
+        case 'auth/operation-not-allowed':
+          errorMessage = 'הרשמה באימייל וסיסמה לא מופעלת';
+          break;
+        case 'auth/weak-password':
+          errorMessage = 'הסיסמה חלשה מדי. השתמש בסיסמה חזקה יותר.';
+          break;
+        default:
+          errorMessage = `שגיאה: ${error.message}`;
+      }
+      
+      Alert.alert('שגיאה בהרשמה', errorMessage);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -123,11 +181,14 @@ export function RegisterForm({
       </View>
 
       <TouchableOpacity 
-        style={[styles.button, { backgroundColor: primaryColor }]}
+        style={[styles.button, { backgroundColor: primaryColor, opacity: isLoading ? 0.7 : 1 }]}
         onPress={handleRegister}
         activeOpacity={0.8}
+        disabled={isLoading}
       >
-        <Text style={styles.buttonText}>צור/י חשבון</Text>
+        <Text style={styles.buttonText}>
+          {isLoading ? 'יוצר חשבון...' : 'צור/י חשבון'}
+        </Text>
       </TouchableOpacity>
     </View>
   );

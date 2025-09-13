@@ -1,9 +1,11 @@
 import { Colors } from "@/constants/Colors";
+import { auth } from "@/constants/firebase-config";
 import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from 'expo-haptics';
 import { useRouter } from "expo-router";
+import { signInWithEmailAndPassword } from 'firebase/auth';
 import React, { useState } from "react";
-import { StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
+import { Alert, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
 
 interface LoginFormProps {
   email: string;
@@ -17,6 +19,7 @@ export function LoginForm({ email, setEmail, password, setPassword, onForgotPass
   const [showPassword, setShowPassword] = useState(false);
   const [emailFocused, setEmailFocused] = useState(false);
   const [passwordFocused, setPasswordFocused] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
   const router = useRouter();
   
   const primaryColor = Colors.light.primary;
@@ -30,11 +33,56 @@ export function LoginForm({ email, setEmail, password, setPassword, onForgotPass
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
   };
 
-  const handleLogin = () => {
-    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    // In a real app, we would authenticate with a backend
-    alert("התחברות הצליחה!\nברוכים השבים ל-CycleConnect!");
-    router.replace("/(tabs)");
+  const handleLogin = async () => {
+    if (!email || !password) {
+      Alert.alert('שגיאה', 'אנא מלא את כל השדות');
+      return;
+    }
+
+    setIsLoading(true);
+    
+    try {
+      const userCredential = await signInWithEmailAndPassword(auth, email, password);
+      const user = userCredential.user;
+      
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      Alert.alert(
+        'התחברות הצליחה!', 
+        `ברוך הבא ${user.email}`,
+        [
+          {
+            text: 'המשך',
+            onPress: () => router.replace("/(tabs)")
+          }
+        ]
+      );
+    } catch (error: any) {
+      console.error('Login error:', error);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      
+      let errorMessage = 'שגיאה בהתחברות';
+      
+      switch (error.code) {
+        case 'auth/user-not-found':
+          errorMessage = 'משתמש לא קיים. אנא הירשם תחילה.';
+          break;
+        case 'auth/wrong-password':
+          errorMessage = 'סיסמה שגויה';
+          break;
+        case 'auth/invalid-email':
+          errorMessage = 'כתובת אימייל לא תקינה';
+          break;
+        case 'auth/too-many-requests':
+          errorMessage = 'יותר מדי ניסיונות התחברות. נסה שוב מאוחר יותר.';
+          break;
+        default:
+          errorMessage = `שגיאה: ${error.message}`;
+      }
+      
+      Alert.alert('שגיאה בהתחברות', errorMessage);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -109,11 +157,14 @@ export function LoginForm({ email, setEmail, password, setPassword, onForgotPass
       </View>
 
       <TouchableOpacity 
-        style={[styles.button, { backgroundColor: primaryColor }]}
+        style={[styles.button, { backgroundColor: primaryColor, opacity: isLoading ? 0.7 : 1 }]}
         onPress={handleLogin}
         activeOpacity={0.8}
+        disabled={isLoading}
       >
-        <Text style={styles.buttonText}>התחבר/י</Text>
+        <Text style={styles.buttonText}>
+          {isLoading ? 'מתחבר...' : 'התחבר/י'}
+        </Text>
       </TouchableOpacity>
     </View>
   );

@@ -1,7 +1,6 @@
 import { LocationSearchRef } from '@/components/LocationSearch';
 import { ThemedText } from '@/components/ThemedText';
 import { Colors } from '@/constants/Colors';
-import { mockRides } from '@/data/mock-rides';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import Slider from '@react-native-community/slider';
 import axios from 'axios';
@@ -380,8 +379,8 @@ export default function PostRideScreen() {
   // Effect to load ride data if in edit mode
   useEffect(() => {
     if (isEditMode && rideId) {
-      // Find the ride in mock data
-      const rideToEdit = mockRides.find(r => r.id === rideId);
+      // TODO: Replace with actual API call to fetch ride data
+      const rideToEdit = null;
       
       if (rideToEdit) {
         // Populate the form with ride data
@@ -602,9 +601,7 @@ export default function PostRideScreen() {
     
     if (participants) {
       const parsedParticipants = participants === "5+" ? 5 : parseInt(participants);
-      participantsCount = isEditMode && rideId ? 
-        mockRides.find(r => r.id === rideId)?.participantsCount || parsedParticipants : 
-        parsedParticipants;
+      participantsCount = parsedParticipants;
       
       maxParticipantsValue = participants === "5+" ? 10 : parseInt(participants) * 2;
     }

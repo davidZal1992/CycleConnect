@@ -1,6 +1,5 @@
 import { ThemedText } from '@/components/ThemedText';
 import { Colors } from '@/constants/Colors';
-import { mockRides } from '@/data/mock-rides';
 import { Ride } from '@/types/ride';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
@@ -33,58 +32,10 @@ export default function RidesScreen() {
     const currentDate = new Date();
     console.log('Current date:', currentDate.toISOString());
     
-    // Filter rides for the current user and check if they're expired
-    const userRides = mockRides
-      .filter(ride => ride.organizer.id === currentUserId)
-      .map(ride => {
-        // Parse the date parts correctly
-        const [day, month, year] = ride.date.split('/').map(Number);
-        const [hours, minutes] = ride.time.split(':').map(Number);
-        
-        // Create a date object with the correct year (assuming yy format in original data)
-        // Our dates are in format dd/mm/yy
-        const fullYear = year < 100 ? 2000 + year : year;
-        const rideDate = new Date(fullYear, month - 1, day, hours, minutes);
-        
-        console.log(`Ride: ${ride.title}, Date: ${rideDate.toISOString()}, Expired: ${rideDate < currentDate}`);
-        
-        // Compare with current date
-        const isExpired = rideDate < currentDate;
-        
-        return {
-          ...ride,
-          isExpired
-        };
-      });
+    // TODO: Replace with actual API call to fetch user rides
+    const userRides: RideWithExpiration[] = [];
     
-    // Sort rides: future first (by date), then past (by date, most recent first)
-    const sortedRides = userRides.sort((a, b) => {
-      // If one is expired and the other isn't, the non-expired comes first
-      if (a.isExpired && !b.isExpired) return 1;
-      if (!a.isExpired && b.isExpired) return -1;
-      
-      // If both are either expired or not expired, sort by date
-      const [dayA, monthA, yearA] = a.date.split('/').map(Number);
-      const [dayB, monthB, yearB] = b.date.split('/').map(Number);
-      
-      const fullYearA = yearA < 100 ? 2000 + yearA : yearA;
-      const fullYearB = yearB < 100 ? 2000 + yearB : yearB;
-      
-      const dateA = new Date(fullYearA, monthA - 1, dayA);
-      const dateB = new Date(fullYearB, monthB - 1, dayB);
-      
-      // For non-expired rides, sort by earliest first
-      if (!a.isExpired) return dateA.getTime() - dateB.getTime();
-      
-      // For expired rides, sort by most recent first
-      return dateB.getTime() - dateA.getTime();
-    });
-    
-    setMyRides(sortedRides);
-    
-    // Log the filtered rides to help debug
-    console.log('Future rides:', sortedRides.filter(ride => !ride.isExpired).length);
-    console.log('Expired rides:', sortedRides.filter(ride => ride.isExpired).length);
+    setMyRides(userRides);
   }, []);
   
   const handleEditRide = (rideId: string) => {

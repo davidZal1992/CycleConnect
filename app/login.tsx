@@ -306,25 +306,6 @@ export default function LoginScreen() {
               )}
 
               <SocialLogin />
-
-              <View style={styles.termsContainer}>
-                <ThemedText style={styles.termsText}>
-                  בהמשך, אתה מסכים ל{" "}
-                  <ThemedText 
-                    style={styles.termsLink}
-                    onPress={() => alert("תנאי השירות יהיו זמינים בקרוב")}
-                  >
-                    תנאי השירות
-                  </ThemedText>
-                  {" "}ו{" "}
-                  <ThemedText 
-                    style={styles.termsLink}
-                    onPress={() => alert("מדיניות פרטיות תהיה זמינה בקרוב")}
-                  >
-                    מדיניות פרטיות
-                  </ThemedText>
-                </ThemedText>
-              </View>
             </View>
           </ThemedView>
         </View>

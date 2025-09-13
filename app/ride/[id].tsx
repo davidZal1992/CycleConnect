@@ -1,6 +1,5 @@
 import { ThemedText } from '@/components/ThemedText';
 import { Colors } from '@/constants/Colors';
-import { mockRides } from '@/data/mock-rides';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
@@ -19,7 +18,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 export default function RideDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
-  const [ride, setRide] = useState(mockRides.find(r => r.id === id));
+  const [ride, setRide] = useState(null);
   const [loading, setLoading] = useState(!ride);
   const router = useRouter();
   
@@ -31,7 +30,8 @@ export default function RideDetailScreen() {
   useEffect(() => {
     if (!ride) {
       const timeout = setTimeout(() => {
-        setRide(mockRides.find(r => r.id === id));
+        // TODO: Replace with actual API call to fetch ride data
+        setRide(null);
         setLoading(false);
       }, 1000);
       
